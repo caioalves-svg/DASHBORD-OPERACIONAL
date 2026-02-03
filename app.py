@@ -98,14 +98,30 @@ except Exception as e:
     st.stop()
 
 # ==============================================================================
-# 3. FILTROS
+# 3. FILTROS (CORREÇÃO DATA ÚNICA)
 # ==============================================================================
 st.sidebar.header("🔍 Filtros")
 st.sidebar.markdown("---")
 
 min_date = df_raw['Data'].min().date()
 max_date = df_raw['Data'].max().date()
-start_date, end_date = st.sidebar.date_input("Período", [min_date, max_date], min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
+
+# CORREÇÃO: Recebe o input em uma variável genérica
+date_range = st.sidebar.date_input(
+    "Período",
+    value=[min_date, max_date],
+    min_value=min_date,
+    max_value=max_date,
+    format="DD/MM/YYYY"
+)
+
+# CORREÇÃO: Lógica para tratar 1 ou 2 datas
+if len(date_range) == 2:
+    start_date, end_date = date_range
+elif len(date_range) == 1:
+    start_date, end_date = date_range[0], date_range[0] # Se escolher 1 dia, início e fim são iguais
+else:
+    start_date, end_date = min_date, max_date
 
 if 'Setor' in df_raw.columns:
     setores = st.sidebar.multiselect("Setor", options=sorted(df_raw['Setor'].unique()))
@@ -115,6 +131,7 @@ colaboradores = st.sidebar.multiselect("Colaborador", options=sorted(df_raw['Col
 portais = st.sidebar.multiselect("Portal", options=sorted(df_raw['Portal'].unique()))
 transportadoras = st.sidebar.multiselect("Transportadora", options=sorted([t for t in df_raw['Transportadora'].unique() if t not in ['-', 'Não Informado']]))
 
+# Aplica Filtros
 df_filtered = df_raw.copy()
 df_filtered = df_filtered[(df_filtered['Data'].dt.date >= start_date) & (df_filtered['Data'].dt.date <= end_date)]
 
@@ -307,12 +324,11 @@ with tab3:
         else:
             st.info("Sem dados de motivos.")
 
-    # Tabela Detalhada com Download (CORREÇÃO EXCEL UTF-8-SIG)
+    # Tabela Detalhada com Download
     st.markdown("### 📋 Lista Detalhada de Reincidentes")
     
     df_export = df_criticos[['ID_Ref', 'Episodios_Reais', 'Ultimo_Motivo', 'Status_Risco', 'Historico_Completo', 'Ultima_Data']]
     
-    # AQUI ESTÁ A CORREÇÃO: encoding='utf-8-sig'
     csv = df_export.to_csv(index=False, sep=';').encode('utf-8-sig')
     st.download_button("📥 Baixar Relatório (CSV)", data=csv, file_name='relatorio_risco_cancelamento.csv', mime='text/csv')
     
