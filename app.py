@@ -42,7 +42,8 @@ def load_data():
     cols_texto = ['Colaborador', 'Setor', 'Portal', 'Transportadora', 'Motivo', 'Motivo_CRM', 'Numero_Pedido', 'Nota_Fiscal']
     for col in cols_texto:
         if col in df.columns:
-            df[col] = df[col].fillna("Não Informado").astype(str).replace("nan", "Não Informado").str.strip()
+            # Remove ponto e vírgula e quebras de linha dos textos para não quebrar o CSV
+            df[col] = df[col].fillna("Não Informado").astype(str).replace("nan", "Não Informado").str.strip().str.replace(';', ',').str.replace('\n', ' ')
 
     # Data e Hora
     if 'Hora' in df.columns:
@@ -156,7 +157,6 @@ with tab1:
     
     df_melt = df_vol.melt(id_vars='Colaborador', value_vars=['Bruto', 'Liquido'], var_name='Métrica', value_name='Volume')
     
-    # Eixo X expandido
     max_vol = df_melt['Volume'].max()
     
     fig_prod = px.bar(df_melt, y='Colaborador', x='Volume', color='Métrica', barmode='group', orientation='h',
@@ -183,7 +183,6 @@ with tab1:
     df_tma['Capacidade_Diaria'] = (TEMPO_UTIL / df_tma['TMA_Medio']).fillna(0).astype(int)
     df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=False)
 
-    # Limite Y
     max_cap = df_tma['Capacidade_Diaria'].max() if not df_tma.empty else 100
     y_limit = max_cap * 1.25
 
@@ -267,15 +266,12 @@ with tab2:
 with tab3:
     st.subheader("🕵️ Risco de Cancelamento (Reincidência Crítica)")
     
-    # Ordena rigorosamente por data para garantir cronologia
     df_chrono = df_filtered.sort_values(by=['ID_Ref', 'Data_Completa'])
 
     df_reinc = df_chrono.groupby('ID_Ref').agg(
         Episodios_Reais=('Eh_Novo_Episodio', 'sum'),
         Ultimo_Motivo=('Motivo', 'last'),
-        # NOVA LÓGICA: Histórico cronológico completo unido por seta
         Historico_Completo=('Motivo', lambda x: " ➡️ ".join(x.astype(str))),
-        # Mantemos o set para o gráfico de contagem (para não poluir o gráfico com repetidos)
         Motivos_Unicos=('Motivo', lambda x: list(set(x))),
         Ultima_Data=('Data_Completa', 'max')
     ).reset_index()
@@ -295,7 +291,6 @@ with tab3:
     col_chart, col_empty = st.columns([2, 1])
     with col_chart:
         st.markdown("**Quais motivos levam o cliente a voltar? (Top 10)**")
-        # Usa Motivos_Unicos para o gráfico para não contar o mesmo motivo 10 vezes pro mesmo cliente
         all_motivos = df_criticos.explode('Motivos_Unicos')
         if not all_motivos.empty:
             counts = all_motivos['Motivos_Unicos'].value_counts().reset_index()
@@ -312,13 +307,13 @@ with tab3:
         else:
             st.info("Sem dados de motivos.")
 
-    # Tabela Detalhada com Download
+    # Tabela Detalhada com Download (CORREÇÃO EXCEL UTF-8-SIG)
     st.markdown("### 📋 Lista Detalhada de Reincidentes")
     
-    # Inclui a nova coluna Historico_Completo na tabela
     df_export = df_criticos[['ID_Ref', 'Episodios_Reais', 'Ultimo_Motivo', 'Status_Risco', 'Historico_Completo', 'Ultima_Data']]
     
-    csv = df_export.to_csv(index=False, sep=';').encode('utf-8')
+    # AQUI ESTÁ A CORREÇÃO: encoding='utf-8-sig'
+    csv = df_export.to_csv(index=False, sep=';').encode('utf-8-sig')
     st.download_button("📥 Baixar Relatório (CSV)", data=csv, file_name='relatorio_risco_cancelamento.csv', mime='text/csv')
     
     st.dataframe(
