@@ -60,17 +60,18 @@ def load_data():
     if 'Dia_Semana' in df.columns:
         df['Dia_Semana'] = df['Dia_Semana'].astype(str).str.title().str.strip()
 
-    # Chave Única
+    # Chave Única e ID Ref
     df['ID_Ref'] = np.where(df['Numero_Pedido'] != "Não Informado", df['Numero_Pedido'], df['Nota_Fiscal'])
+    # Garante que ID_Ref seja string para evitar notação científica nos gráficos
+    df['ID_Ref'] = df['ID_Ref'].astype(str)
+    
     df['Data_Str'] = df['Data'].dt.strftime('%Y-%m-%d')
-    # Chave usada para contagem de duplicidade simples
     df['Chave_Unica_Dia'] = df['Data_Str'] + "_" + df['Colaborador'] + "_" + df['ID_Ref']
 
     # --- LÓGICA 2 HORAS ---
     df = df.sort_values(by=['ID_Ref', 'Data_Completa'])
     df['Tempo_Desde_Ultimo_Contato'] = df.groupby('ID_Ref')['Data_Completa'].diff()
     
-    # Se passou mais de 2 horas (ou é o primeiro), é um novo episódio
     df['Eh_Novo_Episodio'] = np.where(
         (df['Tempo_Desde_Ultimo_Contato'].isnull()) | (df['Tempo_Desde_Ultimo_Contato'] > pd.Timedelta(hours=2)), 
         1, 
@@ -82,7 +83,6 @@ def load_data():
     df['Tempo_Ate_Proximo'] = df.groupby('Colaborador')['Data_Completa'].shift(-1) - df['Data_Completa']
     df['Minutos_No_Atendimento'] = df['Tempo_Ate_Proximo'].dt.total_seconds() / 60
     
-    # Filtro TMA (entre 30seg e 40min)
     df['TMA_Valido'] = np.where(
         (df['Minutos_No_Atendimento'] > 0.5) & (df['Minutos_No_Atendimento'] <= 40),
         df['Minutos_No_Atendimento'],
@@ -130,7 +130,7 @@ st.title("DASHBOARD OPERACIONAL")
 
 # KPIs
 total_bruto = df_filtered.shape[0]
-total_liquido = df_filtered['Eh_Novo_Episodio'].sum() # Lógica de 2h
+total_liquido = df_filtered['Eh_Novo_Episodio'].sum()
 taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
 crm_ok = df_filtered[~df_filtered['Motivo_CRM'].isin(['SEM ABERTURA DE CRM', 'Não Informado'])].shape[0]
 aderencia_crm = (crm_ok / total_bruto * 100) if total_bruto > 0 else 0
@@ -150,7 +150,6 @@ with tab1:
     # 1. GRÁFICO CLÁSSICO: BRUTO vs LÍQUIDO
     st.subheader("1. Volume de Atendimento (Bruto vs Líquido)")
     
-    # Agrupa por 2h (usando a coluna Eh_Novo_Episodio como Líquido)
     df_vol = df_filtered.groupby('Colaborador').agg(
         Bruto=('Data', 'count'),
         Liquido=('Eh_Novo_Episodio', 'sum')
@@ -161,165 +160,153 @@ with tab1:
     fig_prod = px.bar(df_melt, y='Colaborador', x='Volume', color='Métrica', barmode='group', orientation='h',
                       color_discrete_map={'Bruto': '#FFA15A', 'Liquido': '#19D3F3'}, text='Volume')
     fig_prod.update_traces(textposition='outside')
-    fig_prod.update_layout(height=450, margin=dict(r=50), legend=dict(orientation="h", y=1.1))
+    
+    # AJUSTE 1: LEGENDA EMBAIXO PARA NÃO COBRIR O GRÁFICO
+    fig_prod.update_layout(
+        height=450, 
+        margin=dict(r=50), 
+        legend=dict(
+            orientation="h", 
+            yanchor="top", 
+            y=-0.15, 
+            xanchor="center", 
+            x=0.5
+        )
+    )
     st.plotly_chart(fig_prod, use_container_width=True)
 
     st.markdown("---")
 
-    # 2. GRÁFICO NOVO: CAPACIDADE ESTIMADA (EMBAIXO)
+    # 2. GRÁFICO VOLTA AO MODELO ANTERIOR (LINHA + BARRA)
     st.subheader("2. Projeção de Capacidade (Meta vs Real)")
     
     df_tma = df_filtered.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     df_tma.columns = ['Colaborador', 'TMA_Medio', 'Amostra']
-    df_tma = df_tma[df_tma['Amostra'] > 5] # Filtro de relevância
+    df_tma = df_tma[df_tma['Amostra'] > 5] 
     
-    # Cálculo: (480min - 30%) / TMA
     TEMPO_UTIL = 480 * 0.70
     df_tma['Capacidade_Diaria'] = (TEMPO_UTIL / df_tma['TMA_Medio']).fillna(0).astype(int)
     df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=True)
 
     fig_cap = go.Figure()
-    # Barra Projeção
+    # Barra (Capacidade)
     fig_cap.add_trace(go.Bar(
         x=df_tma['Capacidade_Diaria'], y=df_tma['Colaborador'], orientation='h',
-        name='Capacidade Projetada (dia)', marker_color='#00CC96', text=df_tma['Capacidade_Diaria'], textposition='outside'
+        name='Capacidade Projetada', marker_color='#00CC96', text=df_tma['Capacidade_Diaria'], textposition='outside'
     ))
-    # Bolinha TMA
+    # Linha (TMA) - AJUSTE 2: VOLTANDO PARA LINHA CONECTADA
     fig_cap.add_trace(go.Scatter(
-        x=df_tma['TMA_Medio'], y=df_tma['Colaborador'], mode='markers+text',
-        name='TMA Atual (min)', marker=dict(color='red', size=10), 
-        text=df_tma['TMA_Medio'].apply(lambda x: f"{x:.1f}'"), textposition='top center'
+        x=df_tma['TMA_Medio'], y=df_tma['Colaborador'], 
+        mode='lines+markers+text', # Linha conectada
+        name='TMA Atual (min)', 
+        marker=dict(color='#EF553B', size=8),
+        line=dict(color='#EF553B', width=2),
+        text=df_tma['TMA_Medio'].apply(lambda x: f"{x:.1f}'"), 
+        textposition='top center',
+        xaxis='x2' # Eixo secundário se necessário, mas aqui compartilham X visualmente, vamos usar eixo duplo
     ))
     
-    fig_cap.update_layout(height=450, xaxis=dict(title='Quantidade de Atendimentos'), legend=dict(orientation="h", y=1.1))
+    # Eixo duplo para garantir escalas visíveis
+    fig_cap.update_layout(
+        height=450,
+        xaxis=dict(title='Capacidade (Qtd Atendimentos)', side='bottom'),
+        xaxis2=dict(title='TMA (Minutos)', overlaying='x', side='top', showgrid=False),
+        legend=dict(orientation="h", y=-0.15, x=0.5, xanchor='center')
+    )
     st.plotly_chart(fig_cap, use_container_width=True)
-    st.caption("A barra verde indica quantos atendimentos a pessoa PODE fazer baseada no TMA atual (bolinha vermelha), considerando 30% de ociosidade.")
+    st.caption("Barra Verde = Quantos atendimentos a pessoa PODE fazer. Linha Vermelha = TMA Atual.")
 
     st.markdown("---")
 
-    # 3. HEATMAP (SEGUNDA A SEXTA)
+    # 3. HEATMAP
     st.subheader("3. Mapa de Calor (Segunda a Sexta)")
     dias_uteis = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira']
     
-    # Filtra apenas dias úteis
     df_heat = df_filtered[df_filtered['Dia_Semana'].isin(dias_uteis)]
     df_heat_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
     
     fig_heat = px.density_heatmap(
         df_heat_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados',
-        category_orders={"Dia_Semana": dias_uteis}, # Força ordem correta
+        category_orders={"Dia_Semana": dias_uteis}, 
         color_continuous_scale='Viridis', text_auto=True
     )
     fig_heat.update_layout(height=400)
     st.plotly_chart(fig_heat, use_container_width=True)
 
-# --- ABA 2: CAUSA RAIZ (MATRIZES ORDENADAS) ---
+# --- ABA 2: CAUSA RAIZ ---
 with tab2:
-    # Função auxiliar para criar matriz ordenada e limpa
     def plot_matrix(df_input, col_x, col_y, title):
-        # Filtra "Não Informado" para limpar a visão
         df_clean = df_input[(df_input[col_x] != 'Não Informado') & (df_input[col_y] != 'Não Informado')]
-        
-        # Cria Tabela Cruzada
         matrix = pd.crosstab(df_clean[col_y], df_clean[col_x])
-        
-        # Filtra linhas/colunas zeradas
         matrix = matrix.loc[(matrix!=0).any(axis=1), (matrix!=0).any(axis=0)]
         
-        # Ordenação Inteligente: Cria coluna Total para ordenar e depois remove
         matrix['Total_Row'] = matrix.sum(axis=1)
         matrix = matrix.sort_values('Total_Row', ascending=False)
         matrix = matrix.drop(columns='Total_Row')
         
-        # Ordena Colunas também (do maior volume para o menor)
         col_sums = matrix.sum().sort_values(ascending=False).index
         matrix = matrix[col_sums]
 
-        # Plota apenas se tiver dados
         if not matrix.empty:
             fig = px.imshow(matrix, text_auto=True, aspect="auto", color_continuous_scale='Reds', title=title)
             fig.update_layout(height=500)
             return fig
         return None
 
-    # Matriz 1: Portal vs Motivo
     fig_m1 = plot_matrix(df_filtered, 'Motivo', 'Portal', 'Matriz: Portal (Linha) x Motivo (Coluna)')
     if fig_m1: st.plotly_chart(fig_m1, use_container_width=True)
-    else: st.warning("Dados insuficientes para Matriz Portal x Motivo.")
+    else: st.warning("Dados insuficientes.")
 
     st.markdown("---")
 
-    # Matriz 2: Transportadora vs Motivo
-    # Filtra transportadora "-" antes
     df_transp_clean = df_filtered[df_filtered['Transportadora'] != '-']
     fig_m2 = plot_matrix(df_transp_clean, 'Motivo', 'Transportadora', 'Matriz: Transportadora (Linha) x Motivo (Coluna)')
     if fig_m2: st.plotly_chart(fig_m2, use_container_width=True)
-    else: st.warning("Dados insuficientes para Matriz Transportadora x Motivo.")
+    else: st.warning("Dados insuficientes.")
 
-# --- ABA 3: REINCIDÊNCIA (RISCO DE CANCELAMENTO) ---
+# --- ABA 3: REINCIDÊNCIA (AJUSTE 3: REMOVIDO GRÁFICO ID) ---
 with tab3:
     st.subheader("🕵️ Risco de Cancelamento (Reincidência Crítica)")
     
-    # Agrupa pegando o ÚLTIMO motivo registrado
     df_reinc = df_filtered.groupby('ID_Ref').agg(
         Episodios_Reais=('Eh_Novo_Episodio', 'sum'),
-        Ultimo_Motivo=('Motivo', 'last'), # Pega o motivo do registro mais recente
+        Ultimo_Motivo=('Motivo', 'last'),
         Motivos_Todos=('Motivo', lambda x: list(set(x))),
         Ultima_Data=('Data_Completa', 'max')
     ).reset_index()
     
     df_reinc = df_reinc[df_reinc['ID_Ref'] != 'Não Informado']
     
-    # Flag: O último contato foi sobre cancelamento?
-    # Verifica se a palavra "Cancelamento" está no último motivo (ignora maiuscula/minuscula)
+    # Flag Cancelamento
     df_reinc['Risco_Cancelamento'] = df_reinc['Ultimo_Motivo'].astype(str).str.contains('Cancelamento', case=False, na=False)
-    
-    # Define Status para o Gráfico
     df_reinc['Status_Risco'] = np.where(df_reinc['Risco_Cancelamento'], '🔴 Risco Cancelamento', '🔵 Em Tratativa')
     
-    # Filtra Top Reincidentes (>1 episódio)
     df_criticos = df_reinc[df_reinc['Episodios_Reais'] > 1].copy().sort_values('Episodios_Reais', ascending=False)
     
-    # Métrica de Risco
     qtd_risco = df_criticos[df_criticos['Risco_Cancelamento']].shape[0]
     st.metric("Clientes Reincidentes pedindo Cancelamento (Último Contato)", f"{qtd_risco}", delta="Atenção Prioritária", delta_color="inverse")
     
-    col_r1, col_r2 = st.columns([2, 1])
-    
-    with col_r1:
-        st.markdown("**Top 15 Clientes com Mais Contatos (Cor = Status Atual)**")
-        if not df_criticos.empty:
-            # Gráfico de Barras Colorido pelo Risco
-            fig_risk = px.bar(
-                df_criticos.head(15),
-                x='Episodios_Reais',
-                y='ID_Ref',
-                orientation='h',
-                text='Episodios_Reais',
-                color='Status_Risco', # Vermelho se cancelamento
-                color_discrete_map={'🔴 Risco Cancelamento': '#FF4B4B', '🔵 Em Tratativa': '#1f77b4'},
-                title="Quem está ligando mais? (Vermelho = Pediu Cancelamento por último)",
-                labels={'ID_Ref': 'Pedido/NF', 'Episodios_Reais': 'Qtd Atendimentos (>2h)'}
-            )
-            fig_risk.update_layout(yaxis={'categoryorder':'total ascending'}, legend=dict(orientation="h", y=1.1))
-            st.plotly_chart(fig_risk, use_container_width=True)
-        else:
-            st.success("Sem reincidências no período.")
+    st.markdown("---")
 
-    with col_r2:
-        st.markdown("**Motivos que levam à Reincidência**")
-        # Explode a lista de motivos para contar individualmente
+    # AQUI: Removido o gráfico de barras dos IDs que você não gostou.
+    # Coloquei o gráfico de pizza (Motivos) e a tabela em destaque.
+
+    col_pie, col_empty = st.columns([1, 1])
+    with col_pie:
+        st.markdown("**Principais Motivos dos Reincidentes**")
         all_motivos = df_criticos.explode('Motivos_Todos')
         if not all_motivos.empty:
             counts = all_motivos['Motivos_Todos'].value_counts().reset_index()
             counts.columns = ['Motivo', 'Frequência']
-            fig_pie = px.pie(counts.head(5), names='Motivo', values='Frequência', hole=0.4)
-            fig_pie.update_layout(height=400, showlegend=False)
+            fig_pie = px.pie(counts.head(7), names='Motivo', values='Frequência', hole=0.4)
+            fig_pie.update_layout(height=350, showlegend=True)
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("Sem dados.")
 
     # Tabela com Download
-    st.markdown("### 📋 Lista Detalhada")
+    st.markdown("### 📋 Lista Detalhada de Reincidentes")
     df_export = df_criticos[['ID_Ref', 'Episodios_Reais', 'Ultimo_Motivo', 'Status_Risco', 'Ultima_Data']]
     
     csv = df_export.to_csv(index=False, sep=';').encode('utf-8')
