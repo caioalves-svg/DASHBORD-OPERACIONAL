@@ -146,7 +146,7 @@ tab1, tab2, tab3 = st.tabs(["🚀 Produtividade & Capacidade", "🔥 Causa Raiz 
 
 # --- ABA 1: PRODUTIVIDADE ---
 with tab1:
-    # 1. BRUTO vs LÍQUIDO
+    # 1. VOLUME ATENDIMENTO
     st.subheader("1. Volume de Atendimento (Bruto vs Líquido)")
     
     df_vol = df_filtered.groupby('Colaborador').agg(
@@ -156,19 +156,24 @@ with tab1:
     
     df_melt = df_vol.melt(id_vars='Colaborador', value_vars=['Bruto', 'Liquido'], var_name='Métrica', value_name='Volume')
     
+    # Cálculo para expandir eixo X
+    max_vol = df_melt['Volume'].max()
+    
     fig_prod = px.bar(df_melt, y='Colaborador', x='Volume', color='Métrica', barmode='group', orientation='h',
                       color_discrete_map={'Bruto': '#FFA15A', 'Liquido': '#19D3F3'}, text='Volume')
     fig_prod.update_traces(textposition='outside')
     fig_prod.update_layout(
         height=450, 
         margin=dict(r=50), 
+        # Aumenta 15% o eixo X para caber o número
+        xaxis=dict(range=[0, max_vol * 1.15]),
         legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
     )
     st.plotly_chart(fig_prod, use_container_width=True)
 
     st.markdown("---")
 
-    # 2. PROJEÇÃO DE CAPACIDADE (EM PÉ / VERTICAL)
+    # 2. PROJEÇÃO DE CAPACIDADE
     st.subheader("2. Projeção de Capacidade (Meta vs Real)")
     
     df_tma = df_filtered.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
@@ -177,18 +182,21 @@ with tab1:
     
     TEMPO_UTIL = 480 * 0.70
     df_tma['Capacidade_Diaria'] = (TEMPO_UTIL / df_tma['TMA_Medio']).fillna(0).astype(int)
-    # Ordena DESCENDENTE para o maior ficar na esquerda
-    df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=False)
+    df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=False) # Maior na esquerda
+
+    # Cálculo dinâmico do limite do eixo Y
+    max_cap = df_tma['Capacidade_Diaria'].max() if not df_tma.empty else 100
+    y_limit = max_cap * 1.25 # Adiciona 25% de margem no topo
 
     fig_cap = go.Figure()
     
-    # Barra Vertical (Capacidade) - Eixo Y Esquerdo
+    # Barra Vertical
     fig_cap.add_trace(go.Bar(
         x=df_tma['Colaborador'], y=df_tma['Capacidade_Diaria'], 
         name='Capacidade Projetada', marker_color='#00CC96', text=df_tma['Capacidade_Diaria'], textposition='outside'
     ))
     
-    # Linha (TMA) - Eixo Y Direito (y2)
+    # Linha TMA
     fig_cap.add_trace(go.Scatter(
         x=df_tma['Colaborador'], y=df_tma['TMA_Medio'], 
         mode='lines+markers+text',
@@ -197,14 +205,17 @@ with tab1:
         line=dict(color='#EF553B', width=2),
         text=df_tma['TMA_Medio'].apply(lambda x: f"{x:.1f}'"), 
         textposition='top center',
-        yaxis='y2' # Mapeia para o eixo secundário
+        yaxis='y2'
     ))
     
-    # Configuração de Eixo Duplo (Y1 e Y2)
     fig_cap.update_layout(
         height=450,
-        yaxis=dict(title='Capacidade (Qtd Atendimentos)', side='left'), # Eixo Esquerdo
-        yaxis2=dict(title='TMA (Minutos)', overlaying='y', side='right', showgrid=False), # Eixo Direito
+        yaxis=dict(
+            title='Capacidade (Qtd Atendimentos)', 
+            side='left', 
+            range=[0, y_limit] # FIX: Limite dinâmico aumentado
+        ),
+        yaxis2=dict(title='TMA (Minutos)', overlaying='y', side='right', showgrid=False),
         legend=dict(orientation="h", y=-0.2, x=0.5, xanchor='center'),
         xaxis=dict(title='Colaborador')
     )
