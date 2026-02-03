@@ -42,7 +42,7 @@ def load_data():
     cols_texto = ['Colaborador', 'Setor', 'Portal', 'Transportadora', 'Motivo', 'Motivo_CRM', 'Numero_Pedido', 'Nota_Fiscal']
     for col in cols_texto:
         if col in df.columns:
-            # Remove ponto e vírgula e quebras de linha dos textos para não quebrar o CSV
+            # Remove ponto e vírgula e quebras de linha para CSV seguro
             df[col] = df[col].fillna("Não Informado").astype(str).replace("nan", "Não Informado").str.strip().str.replace(';', ',').str.replace('\n', ' ')
 
     # Data e Hora
@@ -91,6 +91,12 @@ def load_data():
 
     return df
 
+# --- BOTÃO DE REFRESH MANUAL (Melhoria 1) ---
+st.sidebar.title("Dashboard Operacional")
+if st.sidebar.button("🔄 Atualizar Dados Agora"):
+    st.cache_data.clear()
+    st.rerun()
+
 try:
     df_raw = load_data()
 except Exception as e:
@@ -98,7 +104,7 @@ except Exception as e:
     st.stop()
 
 # ==============================================================================
-# 3. FILTROS (CORREÇÃO DATA ÚNICA)
+# 3. FILTROS
 # ==============================================================================
 st.sidebar.header("🔍 Filtros")
 st.sidebar.markdown("---")
@@ -106,7 +112,6 @@ st.sidebar.markdown("---")
 min_date = df_raw['Data'].min().date()
 max_date = df_raw['Data'].max().date()
 
-# CORREÇÃO: Recebe o input em uma variável genérica
 date_range = st.sidebar.date_input(
     "Período",
     value=[min_date, max_date],
@@ -115,11 +120,10 @@ date_range = st.sidebar.date_input(
     format="DD/MM/YYYY"
 )
 
-# CORREÇÃO: Lógica para tratar 1 ou 2 datas
 if len(date_range) == 2:
     start_date, end_date = date_range
 elif len(date_range) == 1:
-    start_date, end_date = date_range[0], date_range[0] # Se escolher 1 dia, início e fim são iguais
+    start_date, end_date = date_range[0], date_range[0]
 else:
     start_date, end_date = min_date, max_date
 
@@ -143,7 +147,8 @@ if transportadoras: df_filtered = df_filtered[df_filtered['Transportadora'].isin
 # ==============================================================================
 # 4. DASHBOARD
 # ==============================================================================
-st.title("DASHBOARD OPERACIONAL")
+# st.title removido pois já tem na sidebar, mas pode manter se preferir
+st.markdown("## 📊 Visão Geral") 
 
 # KPIs
 total_bruto = df_filtered.shape[0]
@@ -152,11 +157,14 @@ taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_
 crm_ok = df_filtered[~df_filtered['Motivo_CRM'].isin(['SEM ABERTURA DE CRM', 'Não Informado'])].shape[0]
 aderencia_crm = (crm_ok / total_bruto * 100) if total_bruto > 0 else 0
 
+# Delta da Aderência (Melhoria 2)
+delta_crm = aderencia_crm - 95 # Meta 95%
+
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("📦 Total Registros (Bruto)", f"{total_bruto}")
 k2.metric("✅ Atendimentos Reais (2h)", f"{total_liquido}")
 k3.metric("⚠️ Taxa de Duplicidade", f"{taxa_duplicidade:.1f}%", delta_color="inverse")
-k4.metric("🛡️ Aderência CRM", f"{aderencia_crm:.1f}%")
+k4.metric("🛡️ Aderência CRM", f"{aderencia_crm:.1f}%", delta=f"{delta_crm:.1f}% (Meta 95%)")
 
 st.markdown("---")
 
@@ -164,7 +172,6 @@ tab1, tab2, tab3 = st.tabs(["🚀 Produtividade & Capacidade", "🔥 Causa Raiz 
 
 # --- ABA 1: PRODUTIVIDADE ---
 with tab1:
-    # 1. VOLUME
     st.subheader("1. Volume de Atendimento (Bruto vs Líquido)")
     
     df_vol = df_filtered.groupby('Colaborador').agg(
@@ -189,7 +196,6 @@ with tab1:
 
     st.markdown("---")
 
-    # 2. CAPACIDADE
     st.subheader("2. Projeção de Capacidade (Meta vs Real)")
     
     df_tma = df_filtered.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
@@ -233,7 +239,6 @@ with tab1:
 
     st.markdown("---")
 
-    # 3. HEATMAP
     st.subheader("3. Mapa de Calor (Segunda a Sexta)")
     dias_uteis = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira']
     
@@ -324,7 +329,7 @@ with tab3:
         else:
             st.info("Sem dados de motivos.")
 
-    # Tabela Detalhada com Download
+    # Tabela Detalhada (Melhoria 3: Destaque visual)
     st.markdown("### 📋 Lista Detalhada de Reincidentes")
     
     df_export = df_criticos[['ID_Ref', 'Episodios_Reais', 'Ultimo_Motivo', 'Status_Risco', 'Historico_Completo', 'Ultima_Data']]
@@ -338,6 +343,7 @@ with tab3:
         hide_index=True,
         column_config={
             "Historico_Completo": st.column_config.TextColumn("Histórico Cronológico (Evolução)", width="large"),
-            "Ultima_Data": st.column_config.DatetimeColumn("Última Interação", format="DD/MM/YYYY HH:mm")
+            "Ultima_Data": st.column_config.DatetimeColumn("Última Interação", format="DD/MM/YYYY HH:mm"),
+            "Status_Risco": st.column_config.TextColumn("Status", help="Vermelho = Pedido de Cancelamento")
         }
     )
