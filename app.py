@@ -146,7 +146,7 @@ tab1, tab2, tab3 = st.tabs(["🚀 Produtividade & Capacidade", "🔥 Causa Raiz 
 
 # --- ABA 1: PRODUTIVIDADE ---
 with tab1:
-    # 1. VOLUME ATENDIMENTO
+    # 1. VOLUME
     st.subheader("1. Volume de Atendimento (Bruto vs Líquido)")
     
     df_vol = df_filtered.groupby('Colaborador').agg(
@@ -156,7 +156,7 @@ with tab1:
     
     df_melt = df_vol.melt(id_vars='Colaborador', value_vars=['Bruto', 'Liquido'], var_name='Métrica', value_name='Volume')
     
-    # Cálculo para expandir eixo X
+    # Eixo X expandido
     max_vol = df_melt['Volume'].max()
     
     fig_prod = px.bar(df_melt, y='Colaborador', x='Volume', color='Métrica', barmode='group', orientation='h',
@@ -165,7 +165,6 @@ with tab1:
     fig_prod.update_layout(
         height=450, 
         margin=dict(r=50), 
-        # Aumenta 15% o eixo X para caber o número
         xaxis=dict(range=[0, max_vol * 1.15]),
         legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
     )
@@ -173,7 +172,7 @@ with tab1:
 
     st.markdown("---")
 
-    # 2. PROJEÇÃO DE CAPACIDADE
+    # 2. CAPACIDADE
     st.subheader("2. Projeção de Capacidade (Meta vs Real)")
     
     df_tma = df_filtered.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
@@ -182,21 +181,19 @@ with tab1:
     
     TEMPO_UTIL = 480 * 0.70
     df_tma['Capacidade_Diaria'] = (TEMPO_UTIL / df_tma['TMA_Medio']).fillna(0).astype(int)
-    df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=False) # Maior na esquerda
+    df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=False)
 
-    # Cálculo dinâmico do limite do eixo Y
+    # Limite Y
     max_cap = df_tma['Capacidade_Diaria'].max() if not df_tma.empty else 100
-    y_limit = max_cap * 1.25 # Adiciona 25% de margem no topo
+    y_limit = max_cap * 1.25
 
     fig_cap = go.Figure()
     
-    # Barra Vertical
     fig_cap.add_trace(go.Bar(
         x=df_tma['Colaborador'], y=df_tma['Capacidade_Diaria'], 
         name='Capacidade Projetada', marker_color='#00CC96', text=df_tma['Capacidade_Diaria'], textposition='outside'
     ))
     
-    # Linha TMA
     fig_cap.add_trace(go.Scatter(
         x=df_tma['Colaborador'], y=df_tma['TMA_Medio'], 
         mode='lines+markers+text',
@@ -210,11 +207,7 @@ with tab1:
     
     fig_cap.update_layout(
         height=450,
-        yaxis=dict(
-            title='Capacidade (Qtd Atendimentos)', 
-            side='left', 
-            range=[0, y_limit] # FIX: Limite dinâmico aumentado
-        ),
+        yaxis=dict(title='Capacidade (Qtd Atendimentos)', side='left', range=[0, y_limit]),
         yaxis2=dict(title='TMA (Minutos)', overlaying='y', side='right', showgrid=False),
         legend=dict(orientation="h", y=-0.2, x=0.5, xanchor='center'),
         xaxis=dict(title='Colaborador')
@@ -274,10 +267,16 @@ with tab2:
 with tab3:
     st.subheader("🕵️ Risco de Cancelamento (Reincidência Crítica)")
     
-    df_reinc = df_filtered.groupby('ID_Ref').agg(
+    # Ordena rigorosamente por data para garantir cronologia
+    df_chrono = df_filtered.sort_values(by=['ID_Ref', 'Data_Completa'])
+
+    df_reinc = df_chrono.groupby('ID_Ref').agg(
         Episodios_Reais=('Eh_Novo_Episodio', 'sum'),
         Ultimo_Motivo=('Motivo', 'last'),
-        Motivos_Todos=('Motivo', lambda x: list(set(x))),
+        # NOVA LÓGICA: Histórico cronológico completo unido por seta
+        Historico_Completo=('Motivo', lambda x: " ➡️ ".join(x.astype(str))),
+        # Mantemos o set para o gráfico de contagem (para não poluir o gráfico com repetidos)
+        Motivos_Unicos=('Motivo', lambda x: list(set(x))),
         Ultima_Data=('Data_Completa', 'max')
     ).reset_index()
     
@@ -296,9 +295,10 @@ with tab3:
     col_chart, col_empty = st.columns([2, 1])
     with col_chart:
         st.markdown("**Quais motivos levam o cliente a voltar? (Top 10)**")
-        all_motivos = df_criticos.explode('Motivos_Todos')
+        # Usa Motivos_Unicos para o gráfico para não contar o mesmo motivo 10 vezes pro mesmo cliente
+        all_motivos = df_criticos.explode('Motivos_Unicos')
         if not all_motivos.empty:
-            counts = all_motivos['Motivos_Todos'].value_counts().reset_index()
+            counts = all_motivos['Motivos_Unicos'].value_counts().reset_index()
             counts.columns = ['Motivo', 'Volume']
             counts['Porcentagem'] = (counts['Volume'] / counts['Volume'].sum() * 100).map('{:,.1f}%'.format)
             
@@ -312,10 +312,21 @@ with tab3:
         else:
             st.info("Sem dados de motivos.")
 
+    # Tabela Detalhada com Download
     st.markdown("### 📋 Lista Detalhada de Reincidentes")
-    df_export = df_criticos[['ID_Ref', 'Episodios_Reais', 'Ultimo_Motivo', 'Status_Risco', 'Ultima_Data']]
+    
+    # Inclui a nova coluna Historico_Completo na tabela
+    df_export = df_criticos[['ID_Ref', 'Episodios_Reais', 'Ultimo_Motivo', 'Status_Risco', 'Historico_Completo', 'Ultima_Data']]
     
     csv = df_export.to_csv(index=False, sep=';').encode('utf-8')
     st.download_button("📥 Baixar Relatório (CSV)", data=csv, file_name='relatorio_risco_cancelamento.csv', mime='text/csv')
     
-    st.dataframe(df_export.head(50), use_container_width=True, hide_index=True)
+    st.dataframe(
+        df_export.head(50), 
+        use_container_width=True, 
+        hide_index=True,
+        column_config={
+            "Historico_Completo": st.column_config.TextColumn("Histórico Cronológico (Evolução)", width="large"),
+            "Ultima_Data": st.column_config.DatetimeColumn("Última Interação", format="DD/MM/YYYY HH:mm")
+        }
+    )
