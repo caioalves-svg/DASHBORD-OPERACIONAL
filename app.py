@@ -237,3 +237,54 @@ with col_L3_2:
     fig_tree = px.treemap(df_tree, path=['Transportadora'], values='Volume', color='Volume', color_continuous_scale='Blues')
     fig_tree.update_layout(height=400)
     st.plotly_chart(fig_tree, use_container_width=True)
+
+# ==============================================================================
+# 2. CARREGAMENTO E LIMPEZA DE DADOS (ETL)
+# ==============================================================================
+@st.cache_data(ttl=600)
+def load_data():
+    # LINK DA SUA PLANILHA (Inserido diretamente para evitar erro de secrets)
+    url_planilha = "https://docs.google.com/spreadsheets/d/1EUxfXLsqWv6q06Xs29MVUYjHSH9hbryeF3D6WRFsSEY/edit?gid=0#gid=0"
+
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+    # Aqui forçamos a leitura desse link específico
+    try:
+        df = conn.read(spreadsheet=url_planilha, worksheet="Página1")
+    except Exception:
+        # Se falhar o nome da aba, tenta ler a primeira aba padrão
+        df = conn.read(spreadsheet=url_planilha)
+
+    # --- LIMPEZA E TRATAMENTO ---
+    
+    # 1. Converter Data
+    df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
+    df = df.dropna(subset=['Data']) 
+
+    # 2. Padronizar Dia da Semana
+    if 'Dia_Semana' in df.columns:
+        df['Dia_Semana'] = df['Dia_Semana'].astype(str).str.title().str.strip()
+    
+    # 3. Criar Hora Cheia
+    if 'Hora' in df.columns:
+        df['Hora_Cheia'] = df['Hora'].astype(str).str.slice(0, 2) + ":00"
+    else:
+        df['Hora_Cheia'] = df['Data'].dt.hour.astype(str).str.zfill(2) + ":00"
+
+    # 4. Tratamento de Nulos
+    cols_texto = ['Colaborador', 'Portal', 'Transportadora', 'Motivo', 'Motivo_CRM', 'Numero_Pedido', 'Nota_Fiscal']
+    for col in cols_texto:
+        if col in df.columns:
+            df[col] = df[col].fillna("Não Informado").astype(str).replace("nan", "Não Informado")
+
+    # 5. Lógica de Unicidade
+    df['ID_Ref'] = np.where(
+        df['Numero_Pedido'] != "Não Informado", 
+        df['Numero_Pedido'], 
+        df['Nota_Fiscal']
+    )
+    
+    df['Data_Str'] = df['Data'].dt.strftime('%Y-%m-%d')
+    df['Chave_Unica'] = df['Data_Str'] + "_" + df['Colaborador'] + "_" + df['ID_Ref']
+    
+    return df
