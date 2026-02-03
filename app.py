@@ -7,7 +7,7 @@ from datetime import timedelta
 from streamlit_gsheets import GSheetsConnection
 
 # ==============================================================================
-# 1. CONFIGURAÇÃO DA PÁGINA E ESTILO
+# 1. CONFIGURAÇÃO DA PÁGINA
 # ==============================================================================
 st.set_page_config(
     page_title="Dashboard Operacional",
@@ -25,7 +25,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. ETL & CÁLCULOS (TMA, REINCIDÊNCIA 2H, ETC)
+# 2. ETL & CÁLCULOS
 # ==============================================================================
 @st.cache_data(ttl=600)
 def load_data():
@@ -35,11 +35,10 @@ def load_data():
     except:
         df = conn.read()
 
-    # --- TRATAMENTO BÁSICO ---
+    # --- TRATAMENTO ---
     df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
     df = df.dropna(subset=['Data'])
 
-    # Limpeza de strings
     cols_texto = ['Colaborador', 'Setor', 'Portal', 'Transportadora', 'Motivo', 'Motivo_CRM', 'Numero_Pedido', 'Nota_Fiscal']
     for col in cols_texto:
         if col in df.columns:
@@ -63,28 +62,26 @@ def load_data():
 
     # Chave Única e ID Ref
     df['ID_Ref'] = np.where(df['Numero_Pedido'] != "Não Informado", df['Numero_Pedido'], df['Nota_Fiscal'])
-    df['ID_Ref'] = df['ID_Ref'].astype(str) # Garante string
+    df['ID_Ref'] = df['ID_Ref'].astype(str)
     
     df['Data_Str'] = df['Data'].dt.strftime('%Y-%m-%d')
     df['Chave_Unica_Dia'] = df['Data_Str'] + "_" + df['Colaborador'] + "_" + df['ID_Ref']
 
-    # --- LÓGICA 1: DUPLICIDADE (JANELA DE 2 HORAS) ---
+    # --- LÓGICA 2 HORAS ---
     df = df.sort_values(by=['ID_Ref', 'Data_Completa'])
     df['Tempo_Desde_Ultimo_Contato'] = df.groupby('ID_Ref')['Data_Completa'].diff()
     
-    # Se passou mais de 2 horas (ou é o primeiro), conta como novo atendimento real
     df['Eh_Novo_Episodio'] = np.where(
         (df['Tempo_Desde_Ultimo_Contato'].isnull()) | (df['Tempo_Desde_Ultimo_Contato'] > pd.Timedelta(hours=2)), 
         1, 
         0
     )
 
-    # --- LÓGICA 2: CÁLCULO TMA (PRODUTIVIDADE) ---
+    # --- CÁLCULO TMA ---
     df = df.sort_values(by=['Colaborador', 'Data_Completa'])
     df['Tempo_Ate_Proximo'] = df.groupby('Colaborador')['Data_Completa'].shift(-1) - df['Data_Completa']
     df['Minutos_No_Atendimento'] = df['Tempo_Ate_Proximo'].dt.total_seconds() / 60
     
-    # Filtra TMA válido (entre 30seg e 40min)
     df['TMA_Valido'] = np.where(
         (df['Minutos_No_Atendimento'] > 0.5) & (df['Minutos_No_Atendimento'] <= 40),
         df['Minutos_No_Atendimento'],
@@ -100,7 +97,7 @@ except Exception as e:
     st.stop()
 
 # ==============================================================================
-# 3. FILTROS LATERAIS
+# 3. FILTROS
 # ==============================================================================
 st.sidebar.header("🔍 Filtros")
 st.sidebar.markdown("---")
@@ -117,7 +114,6 @@ colaboradores = st.sidebar.multiselect("Colaborador", options=sorted(df_raw['Col
 portais = st.sidebar.multiselect("Portal", options=sorted(df_raw['Portal'].unique()))
 transportadoras = st.sidebar.multiselect("Transportadora", options=sorted([t for t in df_raw['Transportadora'].unique() if t not in ['-', 'Não Informado']]))
 
-# Aplica Filtros
 df_filtered = df_raw.copy()
 df_filtered = df_filtered[(df_filtered['Data'].dt.date >= start_date) & (df_filtered['Data'].dt.date <= end_date)]
 
@@ -131,9 +127,9 @@ if transportadoras: df_filtered = df_filtered[df_filtered['Transportadora'].isin
 # ==============================================================================
 st.title("DASHBOARD OPERACIONAL")
 
-# KPIs Globais
+# KPIs
 total_bruto = df_filtered.shape[0]
-total_liquido = df_filtered['Eh_Novo_Episodio'].sum() # Usa lógica de 2h
+total_liquido = df_filtered['Eh_Novo_Episodio'].sum()
 taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
 crm_ok = df_filtered[~df_filtered['Motivo_CRM'].isin(['SEM ABERTURA DE CRM', 'Não Informado'])].shape[0]
 aderencia_crm = (crm_ok / total_bruto * 100) if total_bruto > 0 else 0
@@ -146,12 +142,11 @@ k4.metric("🛡️ Aderência CRM", f"{aderencia_crm:.1f}%")
 
 st.markdown("---")
 
-# Abas
 tab1, tab2, tab3 = st.tabs(["🚀 Produtividade & Capacidade", "🔥 Causa Raiz (Matrizes)", "🕵️ Risco de Cancelamento"])
 
 # --- ABA 1: PRODUTIVIDADE ---
 with tab1:
-    # 1. VOLUME BRUTO vs LÍQUIDO
+    # 1. BRUTO vs LÍQUIDO
     st.subheader("1. Volume de Atendimento (Bruto vs Líquido)")
     
     df_vol = df_filtered.groupby('Colaborador').agg(
@@ -164,8 +159,6 @@ with tab1:
     fig_prod = px.bar(df_melt, y='Colaborador', x='Volume', color='Métrica', barmode='group', orientation='h',
                       color_discrete_map={'Bruto': '#FFA15A', 'Liquido': '#19D3F3'}, text='Volume')
     fig_prod.update_traces(textposition='outside')
-    
-    # Ajuste da legenda para baixo
     fig_prod.update_layout(
         height=450, 
         margin=dict(r=50), 
@@ -175,49 +168,52 @@ with tab1:
 
     st.markdown("---")
 
-    # 2. PROJEÇÃO DE CAPACIDADE (LINHA + BARRA)
+    # 2. PROJEÇÃO DE CAPACIDADE (EM PÉ / VERTICAL)
     st.subheader("2. Projeção de Capacidade (Meta vs Real)")
     
-    # Prepara dados TMA
     df_tma = df_filtered.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     df_tma.columns = ['Colaborador', 'TMA_Medio', 'Amostra']
-    df_tma = df_tma[df_tma['Amostra'] > 5] # Mínimo de 5 atendimentos para calcular
+    df_tma = df_tma[df_tma['Amostra'] > 5] 
     
-    # Cálculo: (480min - 30%) / TMA
     TEMPO_UTIL = 480 * 0.70
     df_tma['Capacidade_Diaria'] = (TEMPO_UTIL / df_tma['TMA_Medio']).fillna(0).astype(int)
-    df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=True)
+    # Ordena DESCENDENTE para o maior ficar na esquerda
+    df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=False)
 
     fig_cap = go.Figure()
-    # Barra Verde (Capacidade)
+    
+    # Barra Vertical (Capacidade) - Eixo Y Esquerdo
     fig_cap.add_trace(go.Bar(
-        x=df_tma['Capacidade_Diaria'], y=df_tma['Colaborador'], orientation='h',
+        x=df_tma['Colaborador'], y=df_tma['Capacidade_Diaria'], 
         name='Capacidade Projetada', marker_color='#00CC96', text=df_tma['Capacidade_Diaria'], textposition='outside'
     ))
-    # Linha Vermelha (TMA)
+    
+    # Linha (TMA) - Eixo Y Direito (y2)
     fig_cap.add_trace(go.Scatter(
-        x=df_tma['TMA_Medio'], y=df_tma['Colaborador'], 
+        x=df_tma['Colaborador'], y=df_tma['TMA_Medio'], 
         mode='lines+markers+text',
         name='TMA Atual (min)', 
         marker=dict(color='#EF553B', size=8),
         line=dict(color='#EF553B', width=2),
         text=df_tma['TMA_Medio'].apply(lambda x: f"{x:.1f}'"), 
         textposition='top center',
-        xaxis='x2' # Usa eixo secundário para escala
+        yaxis='y2' # Mapeia para o eixo secundário
     ))
     
+    # Configuração de Eixo Duplo (Y1 e Y2)
     fig_cap.update_layout(
         height=450,
-        xaxis=dict(title='Capacidade (Qtd Atendimentos)', side='bottom'),
-        xaxis2=dict(title='TMA (Minutos)', overlaying='x', side='top', showgrid=False),
-        legend=dict(orientation="h", y=-0.2, x=0.5, xanchor='center')
+        yaxis=dict(title='Capacidade (Qtd Atendimentos)', side='left'), # Eixo Esquerdo
+        yaxis2=dict(title='TMA (Minutos)', overlaying='y', side='right', showgrid=False), # Eixo Direito
+        legend=dict(orientation="h", y=-0.2, x=0.5, xanchor='center'),
+        xaxis=dict(title='Colaborador')
     )
     st.plotly_chart(fig_cap, use_container_width=True)
-    st.caption("Barra Verde = Quantos atendimentos a pessoa PODE fazer. Linha Vermelha = TMA Atual.")
+    st.caption("Barra Verde = Capacidade (Eixo Esq). Linha Vermelha = TMA Atual (Eixo Dir).")
 
     st.markdown("---")
 
-    # 3. HEATMAP (DIAS ÚTEIS)
+    # 3. HEATMAP
     st.subheader("3. Mapa de Calor (Segunda a Sexta)")
     dias_uteis = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira']
     
@@ -234,15 +230,11 @@ with tab1:
 
 # --- ABA 2: CAUSA RAIZ ---
 with tab2:
-    # Função para criar matriz ordenada e limpa
     def plot_matrix(df_input, col_x, col_y, title):
         df_clean = df_input[(df_input[col_x] != 'Não Informado') & (df_input[col_y] != 'Não Informado')]
         matrix = pd.crosstab(df_clean[col_y], df_clean[col_x])
-        
-        # Remove zerados
         matrix = matrix.loc[(matrix!=0).any(axis=1), (matrix!=0).any(axis=0)]
         
-        # Ordenação por volume (Total)
         matrix['Total_Row'] = matrix.sum(axis=1)
         matrix = matrix.sort_values('Total_Row', ascending=False)
         matrix = matrix.drop(columns='Total_Row')
@@ -256,24 +248,21 @@ with tab2:
             return fig
         return None
 
-    # Matriz 1
     fig_m1 = plot_matrix(df_filtered, 'Motivo', 'Portal', 'Matriz: Portal (Linha) x Motivo (Coluna)')
     if fig_m1: st.plotly_chart(fig_m1, use_container_width=True)
     else: st.warning("Dados insuficientes.")
 
     st.markdown("---")
 
-    # Matriz 2 (Sem traço)
     df_transp_clean = df_filtered[df_filtered['Transportadora'] != '-']
     fig_m2 = plot_matrix(df_transp_clean, 'Motivo', 'Transportadora', 'Matriz: Transportadora (Linha) x Motivo (Coluna)')
     if fig_m2: st.plotly_chart(fig_m2, use_container_width=True)
     else: st.warning("Dados insuficientes.")
 
-# --- ABA 3: REINCIDÊNCIA (VISUAL MELHORADO) ---
+# --- ABA 3: REINCIDÊNCIA ---
 with tab3:
     st.subheader("🕵️ Risco de Cancelamento (Reincidência Crítica)")
     
-    # Agrupamento para Reincidência
     df_reinc = df_filtered.groupby('ID_Ref').agg(
         Episodios_Reais=('Eh_Novo_Episodio', 'sum'),
         Ultimo_Motivo=('Motivo', 'last'),
@@ -283,42 +272,28 @@ with tab3:
     
     df_reinc = df_reinc[df_reinc['ID_Ref'] != 'Não Informado']
     
-    # Flag Cancelamento
     df_reinc['Risco_Cancelamento'] = df_reinc['Ultimo_Motivo'].astype(str).str.contains('Cancelamento', case=False, na=False)
     df_reinc['Status_Risco'] = np.where(df_reinc['Risco_Cancelamento'], '🔴 Risco Cancelamento', '🔵 Em Tratativa')
     
-    # Filtra críticos (>1 episódio)
     df_criticos = df_reinc[df_reinc['Episodios_Reais'] > 1].copy().sort_values('Episodios_Reais', ascending=False)
     
-    # KPI Risco
     qtd_risco = df_criticos[df_criticos['Risco_Cancelamento']].shape[0]
     st.metric("Clientes Reincidentes pedindo Cancelamento (Último Contato)", f"{qtd_risco}", delta="Atenção Prioritária", delta_color="inverse")
     
     st.markdown("---")
 
-    # GRÁFICO MELHORADO: MOTIVOS DA REINCIDÊNCIA (BARRAS HORIZONTAIS)
     col_chart, col_empty = st.columns([2, 1])
     with col_chart:
         st.markdown("**Quais motivos levam o cliente a voltar? (Top 10)**")
-        
-        # Explode a lista para contar
         all_motivos = df_criticos.explode('Motivos_Todos')
         if not all_motivos.empty:
             counts = all_motivos['Motivos_Todos'].value_counts().reset_index()
             counts.columns = ['Motivo', 'Volume']
-            
-            # Calcula % para exibir
             counts['Porcentagem'] = (counts['Volume'] / counts['Volume'].sum() * 100).map('{:,.1f}%'.format)
             
-            # Gráfico de Barras Horizontais (Muito mais legível que Pizza)
             fig_motivos = px.bar(
                 counts.head(10).sort_values('Volume', ascending=True),
-                x='Volume',
-                y='Motivo',
-                orientation='h',
-                text='Porcentagem',
-                color='Volume',
-                color_continuous_scale='Blues'
+                x='Volume', y='Motivo', orientation='h', text='Porcentagem', color='Volume', color_continuous_scale='Blues'
             )
             fig_motivos.update_traces(textposition='outside')
             fig_motivos.update_layout(height=450, coloraxis_showscale=False, yaxis_title=None)
@@ -326,7 +301,6 @@ with tab3:
         else:
             st.info("Sem dados de motivos.")
 
-    # Tabela Detalhada com Download
     st.markdown("### 📋 Lista Detalhada de Reincidentes")
     df_export = df_criticos[['ID_Ref', 'Episodios_Reais', 'Ultimo_Motivo', 'Status_Risco', 'Ultima_Data']]
     
