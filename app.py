@@ -8,27 +8,25 @@ from streamlit_gsheets import GSheetsConnection
 import pytz
 
 # ==============================================================================
-# 1. CONFIGURAÇÕES E METAS FIXAS
+# 1. CONFIGURAÇÃO DA PÁGINA
 # ==============================================================================
-st.set_page_config(page_title="Dashboard Operacional", page_icon="🚛", layout="wide")
-
-# Parâmetros solicitados
-TMA_SAC = 5 + (9/60)        # 05:09 em minutos decimais
-TMA_PEND = 5 + (53/60)      # 05:53 em minutos decimais
-TMA_PADRAO = (TMA_SAC + TMA_PEND) / 2
-HORA_INICIO = 7
-HORA_FIM = 18
-TEMPO_UTIL_DIA = ((HORA_FIM - HORA_INICIO) * 60) * 0.70 # 462 min (30% ociosidade)
+st.set_page_config(
+    page_title="Dashboard Operacional",
+    page_icon="🚛",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 st.markdown("""
 <style>
     .metric-card { background-color: #f0f2f6; border-radius: 10px; padding: 15px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
     [data-testid="stMetricValue"] { font-size: 24px; font-weight: bold; }
+    .js-plotly-plot .plotly .modebar { orientation: v; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. ETL (INTELIGÊNCIA DE DADOS)
+# 2. ETL & CÁLCULOS
 # ==============================================================================
 @st.cache_data(ttl=600)
 def load_data():
@@ -38,14 +36,16 @@ def load_data():
     except:
         df = conn.read()
 
+    # --- TRATAMENTO ---
     df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
     df = df.dropna(subset=['Data'])
 
     cols_texto = ['Colaborador', 'Setor', 'Portal', 'Transportadora', 'Motivo', 'Motivo_CRM', 'Numero_Pedido', 'Nota_Fiscal']
     for col in cols_texto:
         if col in df.columns:
-            df[col] = df[col].fillna("Não Informado").astype(str).str.strip().str.replace(';', ',').str.replace('\n', ' ')
+            df[col] = df[col].fillna("Não Informado").astype(str).replace("nan", "Não Informado").str.strip().str.replace(';', ',').str.replace('\n', ' ')
 
+    # Data e Hora
     if 'Hora' in df.columns:
         df['Hora_Str'] = df['Hora'].astype(str)
         df['Hora_Cheia'] = df['Hora_Str'].str.slice(0, 2) + ":00"
@@ -53,113 +53,380 @@ def load_data():
         df['Hora_Cheia'] = df['Data'].dt.hour.astype(str).str.zfill(2) + ":00"
         df['Hora_Str'] = df['Data'].dt.strftime('%H:%M:%S')
 
-    df['Data_Completa'] = df['Data'] + pd.to_timedelta(df['Hora_Str'])
-    df['Dia_Semana'] = df['Data'].dt.day_name() # Ajuste simples para dia
+    try:
+        df['Data_Completa'] = df['Data'] + pd.to_timedelta(df['Hora_Str'])
+    except:
+        df['Data_Completa'] = df['Data']
+
+    if 'Dia_Semana' in df.columns:
+        df['Dia_Semana'] = df['Dia_Semana'].astype(str).str.title().str.strip()
 
     # Chave Única e ID Ref
     df['ID_Ref'] = np.where(df['Numero_Pedido'] != "Não Informado", df['Numero_Pedido'], df['Nota_Fiscal'])
     df['ID_Ref'] = df['ID_Ref'].astype(str)
     
-    # LÓGICA REINCIDÊNCIA 2 HORAS
-    df = df.sort_values(by=['ID_Ref', 'Data_Completa'])
-    df['Eh_Novo_Episodio'] = np.where(df.groupby('ID_Ref')['Data_Completa'].diff() > pd.Timedelta(hours=2), 1, 0)
-    df.loc[df.groupby('ID_Ref').head(1).index, 'Eh_Novo_Episodio'] = 1
+    df['Data_Str'] = df['Data'].dt.strftime('%Y-%m-%d')
+    df['Chave_Unica_Dia'] = df['Data_Str'] + "_" + df['Colaborador'] + "_" + df['ID_Ref']
 
-    # CÁLCULO TMA REAL (PROJEÇÃO)
+    # --- LÓGICA 2 HORAS ---
+    df = df.sort_values(by=['ID_Ref', 'Data_Completa'])
+    df['Tempo_Desde_Ultimo_Contato'] = df.groupby('ID_Ref')['Data_Completa'].diff()
+    
+    df['Eh_Novo_Episodio'] = np.where(
+        (df['Tempo_Desde_Ultimo_Contato'].isnull()) | (df['Tempo_Desde_Ultimo_Contato'] > pd.Timedelta(hours=2)), 
+        1, 
+        0
+    )
+
+    # --- CÁLCULO TMA REAL (DO TIME) ---
     df = df.sort_values(by=['Colaborador', 'Data_Completa'])
-    df['TMA_Valido'] = df.groupby('Colaborador')['Data_Completa'].diff().shift(-1).dt.total_seconds() / 60
-    df['TMA_Valido'] = np.where((df['TMA_Valido'] > 0.5) & (df['TMA_Valido'] <= 40), df['TMA_Valido'], np.nan)
+    df['Tempo_Ate_Proximo'] = df.groupby('Colaborador')['Data_Completa'].shift(-1) - df['Data_Completa']
+    df['Minutos_No_Atendimento'] = df['Tempo_Ate_Proximo'].dt.total_seconds() / 60
+    
+    df['TMA_Valido'] = np.where(
+        (df['Minutos_No_Atendimento'] > 0.5) & (df['Minutos_No_Atendimento'] <= 40),
+        df['Minutos_No_Atendimento'],
+        np.nan
+    )
 
     return df
 
-df_raw = load_data()
-
-# ==============================================================================
-# 3. FILTROS
-# ==============================================================================
-st.sidebar.title("🚛 Dashboard Pro")
-if st.sidebar.button("🔄 Atualizar Dados"):
+# --- BOTÃO DE REFRESH MANUAL ---
+st.sidebar.title("Dashboard Operacional")
+if st.sidebar.button("🔄 Atualizar Dados Agora"):
     st.cache_data.clear()
     st.rerun()
 
-min_date, max_date = df_raw['Data'].min().date(), df_raw['Data'].max().date()
-date_range = st.sidebar.date_input("Período", [min_date, max_date])
-
-# Tratamento data única ou range
-if len(date_range) == 2: s_date, e_date = date_range
-else: s_date = e_date = date_range[0]
-
-num_dias = (e_date - s_date).days + 1
-
-df_f = df_raw[(df_raw['Data'].dt.date >= s_date) & (df_raw['Data'].dt.date <= e_date)]
-
-# Filtros dinâmicos
-def multiselect_filter(label, col):
-    vals = sorted(df_f[col].unique())
-    sel = st.sidebar.multiselect(label, vals)
-    return df_f[df_f[col].isin(sel)] if sel else df_f
-
-df_f = multiselect_filter("Setor", "Setor")
-df_f = multiselect_filter("Colaborador", "Colaborador")
-df_f = multiselect_filter("Portal", "Portal")
-df_f = multiselect_filter("Transportadora", "Transportadora")
+try:
+    df_raw = load_data()
+except Exception as e:
+    st.error(f"Erro no processamento. Detalhe: {e}")
+    st.stop()
 
 # ==============================================================================
-# 4. CÁLCULOS DE CAPACIDADE (METAS FIXAS)
+# 3. FILTROS & CONFIGURAÇÕES
 # ==============================================================================
-def get_meta_indiv(setor):
-    s = str(setor).upper()
-    if 'SAC' in s: return int(TEMPO_UTIL_DIA / TMA_SAC)
-    if 'PEND' in s or 'ATRASO' in s: return int(TEMPO_UTIL_DIA / TMA_PEND)
-    return int(TEMPO_UTIL_DIA / TMA_PADRAO)
+st.sidebar.header("🔍 Filtros")
+st.sidebar.markdown("---")
 
-df_ativos = df_f.groupby(['Colaborador', 'Setor']).size().reset_index()
-df_ativos['Meta_Fixa'] = df_ativos['Setor'].apply(get_meta_indiv)
+min_date = df_raw['Data'].min().date()
+max_date = df_raw['Data'].max().date()
 
-meta_total_time = df_ativos['Meta_Fixa'].sum()
-total_bruto = df_f.shape[0]
-total_liquido = df_f['Eh_Novo_Episodio'].sum()
-real_medio_dia = total_liquido / num_dias if num_dias > 0 else 0
+date_range = st.sidebar.date_input(
+    "Período",
+    value=[min_date, max_date],
+    min_value=min_date,
+    max_value=max_date,
+    format="DD/MM/YYYY"
+)
 
-# PACING (07h - 18h)
-fuso = pytz.timezone('America/Sao_Paulo')
-agora = datetime.now(fuso)
-if e_date < agora.date(): progresso = 100.0
-elif s_date > agora.date(): progresso = 0.0
+if len(date_range) == 2:
+    start_date, end_date = date_range
+elif len(date_range) == 1:
+    start_date, end_date = date_range[0], date_range[0]
 else:
-    h = agora.hour + (agora.minute/60)
-    progresso = max(0, min(100, ((h - HORA_INICIO) / (HORA_FIM - HORA_INICIO)) * 100))
+    start_date, end_date = min_date, max_date
 
-atingimento = (real_medio_dia / meta_total_time * 100) if meta_total_time > 0 else 0
-cor_ritmo = "normal" if atingimento >= progresso else "inverse"
+num_dias_selecionados = (end_date - start_date).days + 1
+if num_dias_selecionados < 1: num_dias_selecionados = 1
+
+if 'Setor' in df_raw.columns:
+    setores = st.sidebar.multiselect("Setor", options=sorted(df_raw['Setor'].unique()))
+else: setores = []
+
+colaboradores = st.sidebar.multiselect("Colaborador", options=sorted(df_raw['Colaborador'].unique()))
+portais = st.sidebar.multiselect("Portal", options=sorted(df_raw['Portal'].unique()))
+transportadoras = st.sidebar.multiselect("Transportadora", options=sorted([t for t in df_raw['Transportadora'].unique() if t not in ['-', 'Não Informado']]))
+
+# --- NOVIDADE: DEFINIÇÃO DE META JUSTA ---
+st.sidebar.markdown("---")
+st.sidebar.header("⚡ Definição de Meta")
+tma_alvo = st.sidebar.number_input(
+    "TMA Ideal (Minutos)", 
+    min_value=1.0, 
+    max_value=60.0, 
+    value=5.0, # VALOR PADRÃO: 5 MINUTOS POR ATENDIMENTO
+    step=0.5,
+    help="Define o tempo padrão esperado por atendimento. A meta de capacidade será calculada com base neste valor fixo, não na velocidade atual da equipe."
+)
+
+# Aplica Filtros
+df_filtered = df_raw.copy()
+df_filtered = df_filtered[(df_filtered['Data'].dt.date >= start_date) & (df_filtered['Data'].dt.date <= end_date)]
+
+if setores and 'Setor' in df_filtered.columns: df_filtered = df_filtered[df_filtered['Setor'].isin(setores)]
+if colaboradores: df_filtered = df_filtered[df_filtered['Colaborador'].isin(colaboradores)]
+if portais: df_filtered = df_filtered[df_filtered['Portal'].isin(portais)]
+if transportadoras: df_filtered = df_filtered[df_filtered['Transportadora'].isin(transportadoras)]
 
 # ==============================================================================
-# 5. LAYOUT E DASHBOARD
+# 4. DASHBOARD & KPIS
 # ==============================================================================
-st.markdown("## 📊 Visão Geral Operacional")
+st.markdown("## 📊 Visão Geral") 
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("📦 Registros Brutos", f"{total_bruto}")
-c2.metric("✅ Atendimentos (2h)", f"{total_liquido}")
-c3.metric("⚠️ Duplicidade", f"{((total_bruto-total_liquido)/total_bruto*100):.1f}%" if total_bruto>0 else "0%")
-c4.metric("🎯 Meta Diária (Fixa)", f"{meta_total_time}", 
-          delta=f"{atingimento:.1f}% entregue", delta_color=cor_ritmo)
+# KPIs Básicos
+total_bruto = df_filtered.shape[0]
+total_liquido = df_filtered['Eh_Novo_Episodio'].sum()
+taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
 
-tab1, tab2, tab3 = st.tabs(["🚀 Produtividade", "🔥 Causa Raiz", "🕵️ Reincidência & Risco"])
+# --- CÁLCULO DE CAPACIDADE JUSTA (FIXA) ---
+if 'Setor' in df_filtered.columns:
+    grp_cols = ['Colaborador', 'Setor']
+else:
+    grp_cols = ['Colaborador']
+    
+# Calcula quantos colaboradores ativos existem para somar a meta
+# (Agrupamos por colaborador para saber quem trabalhou no período)
+df_ativos = df_filtered.groupby(grp_cols)['Data'].count().reset_index()
+qtd_colaboradores_ativos = df_ativos.shape[0]
+
+TEMPO_UTIL_DIA = 480 * 0.70 # 336 minutos úteis
+
+# FÓRMULA JUSTA:
+# Capacidade Individual = Tempo Útil / TMA Alvo (Fixo)
+# Meta Time = Capacidade Individual * Pessoas Ativas
+capacidade_individual_meta = int(TEMPO_UTIL_DIA / tma_alvo)
+meta_capacidade_dia = capacidade_individual_meta * qtd_colaboradores_ativos
+
+# REAL
+realizado_medio_dia = int(total_liquido / num_dias_selecionados)
+
+# PACING
+percentual_entregue = (realizado_medio_dia / meta_capacidade_dia * 100) if meta_capacidade_dia > 0 else 0
+
+# LÓGICA RITMO (07h - 18h)
+fuso_br = pytz.timezone('America/Sao_Paulo')
+agora = datetime.now(fuso_br)
+hoje = agora.date()
+
+if end_date < hoje:
+    progresso_esperado = 100.0
+elif start_date > hoje:
+    progresso_esperado = 0.0
+else:
+    hora_atual = agora.hour
+    if hora_atual < 7:
+        progresso_esperado = 0.0
+    elif hora_atual >= 18:
+        progresso_esperado = 100.0
+    else:
+        horas_passadas = hora_atual - 7
+        progresso_esperado = (horas_passadas / 11) * 100
+
+if percentual_entregue >= progresso_esperado:
+    cor_ritmo = "normal" 
+    texto_ritmo = f"🚀 {percentual_entregue:.1f}% da Meta (No Ritmo)"
+else:
+    cor_ritmo = "inverse"
+    texto_ritmo = f"🐢 {percentual_entregue:.1f}% da Meta (Atrasado)"
+
+# KPI CARDS
+k1, k2, k3, k4 = st.columns(4)
+k1.metric("📦 Total Registros (Bruto)", f"{total_bruto}")
+k2.metric("✅ Atendimentos Reais (2h)", f"{total_liquido}")
+k3.metric("⚠️ Taxa de Duplicidade", f"{taxa_duplicidade:.1f}%", delta_color="inverse")
+
+# CARD 4: META JUSTA (FIXA)
+k4.metric(
+    "🎯 Capacidade (TMA Alvo: {:.1f} min)".format(tma_alvo), 
+    f"{meta_capacidade_dia}", 
+    delta=texto_ritmo,
+    delta_color=cor_ritmo,
+    help=f"Meta calculada com TMA Fixo de {tma_alvo} min.\nHorário: 07:00 às 18:00.\nEsperado Agora: {progresso_esperado:.0f}%"
+)
+
+st.markdown("---")
+
+tab1, tab2, tab3 = st.tabs(["🚀 Produtividade & Capacidade", "🔥 Causa Raiz (Matrizes)", "🕵️ Risco de Cancelamento"])
 
 # --- ABA 1: PRODUTIVIDADE ---
 with tab1:
-    st.subheader("Volume por Colaborador")
-    df_vol = df_f.groupby('Colaborador').agg(Bruto=('Data','count'), Liquido=('Eh_Novo_Episodio','sum')).reset_index()
-    fig_vol = px.bar(df_vol.melt(id_vars='Colaborador'), y='Colaborador', x='value', color='variable', 
-                     barmode='group', orientation='h', color_discrete_map={'Bruto':'#FFA15A','Liquido':'#19D3F3'}, text_auto=True)
-    st.plotly_chart(fig_vol, use_container_width=True)
+    st.subheader("1. Volume de Atendimento (Bruto vs Líquido)")
+    
+    df_vol = df_filtered.groupby('Colaborador').agg(
+        Bruto=('Data', 'count'),
+        Liquido=('Eh_Novo_Episodio', 'sum'),
+        Erros_CRM=('Motivo_CRM', lambda x: x.isin(['SEM ABERTURA DE CRM', 'Não Informado']).sum())
+    ).reset_index().sort_values('Liquido', ascending=True)
+    
+    df_melt = df_vol.melt(id_vars=['Colaborador', 'Erros_CRM'], value_vars=['Bruto', 'Liquido'], var_name='Métrica', value_name='Volume')
+    
+    max_vol = df_melt['Volume'].max()
+    
+    fig_prod = px.bar(df_melt, y='Colaborador', x='Volume', color='Métrica', barmode='group', orientation='h',
+                      color_discrete_map={'Bruto': '#FFA15A', 'Liquido': '#19D3F3'}, text='Volume',
+                      hover_data={'Erros_CRM': True, 'Métrica': True, 'Volume': True, 'Colaborador': False})
+    
+    fig_prod.update_traces(textposition='outside')
+    fig_prod.update_layout(
+        height=450, 
+        margin=dict(r=50), 
+        xaxis=dict(range=[0, max_vol * 1.15]),
+        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5)
+    )
+    st.plotly_chart(fig_prod, use_container_width=True)
 
     st.markdown("---")
-    st.subheader("Meta Fixa vs TMA Real")
-    df_perf = df_f.groupby(['Colaborador','Setor'])['TMA_Valido'].mean().reset_index()
-    df_perf['Meta_Fixa'] = df_perf['Setor'].apply(get_meta_indiv)
+
+    st.subheader(f"2. Projeção de Capacidade (Meta Fixa: {tma_alvo} min/ticket)")
     
+    # Calcula TMA Real para comparação
+    df_tma = df_filtered.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
+    df_tma.columns = ['Colaborador', 'TMA_Real_Medio', 'Amostra']
+    df_tma = df_tma[df_tma['Amostra'] > 5] 
+    
+    # Capacidade META (Fixa)
+    df_tma['Meta_Capacidade'] = capacidade_individual_meta # Valor fixo igual para todos baseado no TMA Alvo
+    
+    # Capacidade REAL (Projeção do que eles fariam se continuassem no ritmo atual)
+    # Isso é só para efeito de comparação, mas a barra verde será a META.
+    
+    # Ordena por quem tem menor TMA Real (mais produtivos primeiro)
+    df_tma = df_tma.sort_values('TMA_Real_Medio', ascending=True)
+
+    # Limite Y para o gráfico
+    max_cap = df_tma['Meta_Capacidade'].max() 
+    y_limit = max_cap * 1.3
+
     fig_cap = go.Figure()
-    fig_cap.add_trace(go.Bar(x=df_perf['Colaborador'], y=df_perf['Meta_Fixa'], name="Meta (Fixa)", marker_color='#00CC96'))
-    fig_cap.add_trace(go.Scatter(x=df_perf['Colaborador'], y=df_perf['TMA
+    
+    # Barra Verde: A META (Onde eles devem chegar)
+    fig_cap.add_trace(go.Bar(
+        x=df_tma['Colaborador'], y=df_tma['Meta_Capacidade'], 
+        name='Meta (Padrão)', marker_color='#00CC96', text=df_tma['Meta_Capacidade'], textposition='outside'
+    ))
+    
+    # Linha Vermelha: O TMA Real (Quanto menor, melhor)
+    fig_cap.add_trace(go.Scatter(
+        x=df_tma['Colaborador'], y=df_tma['TMA_Real_Medio'], 
+        mode='lines+markers+text',
+        name='TMA Real (min)', 
+        marker=dict(color='#EF553B', size=8),
+        line=dict(color='#EF553B', width=2),
+        text=df_tma['TMA_Real_Medio'].apply(lambda x: f"{x:.1f}'"), 
+        textposition='top center',
+        yaxis='y2'
+    ))
+    
+    # Linha de Referência do TMA ALVO
+    fig_cap.add_hline(y=tma_alvo, line_dash="dash", line_color="grey", annotation_text=f"Meta: {tma_alvo} min", yref="y2")
+
+    fig_cap.update_layout(
+        height=450,
+        yaxis=dict(title='Capacidade Meta (Qtd)', side='left', range=[0, y_limit]),
+        yaxis2=dict(title='TMA (Minutos)', overlaying='y', side='right', showgrid=False),
+        legend=dict(orientation="h", y=-0.2, x=0.5, xanchor='center'),
+        xaxis=dict(title='Colaborador')
+    )
+    st.plotly_chart(fig_cap, use_container_width=True)
+    st.caption(f"Barra Verde = Meta Fixa ({capacidade_individual_meta} atendimentos). Linha Vermelha = TMA Real de cada um.")
+
+    st.markdown("---")
+
+    st.subheader("3. Mapa de Calor (Segunda a Sexta)")
+    dias_uteis = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira']
+    
+    df_heat = df_filtered[df_filtered['Dia_Semana'].isin(dias_uteis)]
+    df_heat_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
+    
+    fig_heat = px.density_heatmap(
+        df_heat_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados',
+        category_orders={"Dia_Semana": dias_uteis}, 
+        color_continuous_scale='Viridis', text_auto=True
+    )
+    fig_heat.update_layout(height=400)
+    st.plotly_chart(fig_heat, use_container_width=True)
+
+# --- ABA 2: CAUSA RAIZ ---
+with tab2:
+    def plot_matrix(df_input, col_x, col_y, title):
+        df_clean = df_input[(df_input[col_x] != 'Não Informado') & (df_input[col_y] != 'Não Informado')]
+        matrix = pd.crosstab(df_clean[col_y], df_clean[col_x])
+        matrix = matrix.loc[(matrix!=0).any(axis=1), (matrix!=0).any(axis=0)]
+        
+        matrix['Total_Row'] = matrix.sum(axis=1)
+        matrix = matrix.sort_values('Total_Row', ascending=False)
+        matrix = matrix.drop(columns='Total_Row')
+        
+        col_sums = matrix.sum().sort_values(ascending=False).index
+        matrix = matrix[col_sums]
+
+        if not matrix.empty:
+            fig = px.imshow(matrix, text_auto=True, aspect="auto", color_continuous_scale='Reds', title=title)
+            fig.update_layout(height=500)
+            return fig
+        return None
+
+    fig_m1 = plot_matrix(df_filtered, 'Motivo', 'Portal', 'Matriz: Portal (Linha) x Motivo (Coluna)')
+    if fig_m1: st.plotly_chart(fig_m1, use_container_width=True)
+    else: st.warning("Dados insuficientes.")
+
+    st.markdown("---")
+
+    df_transp_clean = df_filtered[df_filtered['Transportadora'] != '-']
+    fig_m2 = plot_matrix(df_transp_clean, 'Motivo', 'Transportadora', 'Matriz: Transportadora (Linha) x Motivo (Coluna)')
+    if fig_m2: st.plotly_chart(fig_m2, use_container_width=True)
+    else: st.warning("Dados insuficientes.")
+
+# --- ABA 3: REINCIDÊNCIA ---
+with tab3:
+    st.subheader("🕵️ Risco de Cancelamento (Reincidência Crítica)")
+    
+    df_chrono = df_filtered.sort_values(by=['ID_Ref', 'Data_Completa'])
+
+    df_reinc = df_chrono.groupby('ID_Ref').agg(
+        Episodios_Reais=('Eh_Novo_Episodio', 'sum'),
+        Ultimo_Motivo=('Motivo', 'last'),
+        Historico_Completo=('Motivo', lambda x: " ➡️ ".join(x.astype(str))),
+        Motivos_Unicos=('Motivo', lambda x: list(set(x))),
+        Ultima_Data=('Data_Completa', 'max')
+    ).reset_index()
+    
+    df_reinc = df_reinc[df_reinc['ID_Ref'] != 'Não Informado']
+    
+    df_reinc['Risco_Cancelamento'] = df_reinc['Ultimo_Motivo'].astype(str).str.contains('Cancelamento', case=False, na=False)
+    df_reinc['Status_Risco'] = np.where(df_reinc['Risco_Cancelamento'], '🔴 Risco Cancelamento', '🔵 Em Tratativa')
+    
+    df_criticos = df_reinc[df_reinc['Episodios_Reais'] > 1].copy().sort_values('Episodios_Reais', ascending=False)
+    
+    qtd_risco = df_criticos[df_criticos['Risco_Cancelamento']].shape[0]
+    st.metric("Clientes Reincidentes pedindo Cancelamento (Último Contato)", f"{qtd_risco}", delta="Atenção Prioritária", delta_color="inverse")
+    
+    st.markdown("---")
+
+    col_chart, col_empty = st.columns([2, 1])
+    with col_chart:
+        st.markdown("**Quais motivos levam o cliente a voltar? (Top 10)**")
+        all_motivos = df_criticos.explode('Motivos_Unicos')
+        if not all_motivos.empty:
+            counts = all_motivos['Motivos_Unicos'].value_counts().reset_index()
+            counts.columns = ['Motivo', 'Volume']
+            counts['Porcentagem'] = (counts['Volume'] / counts['Volume'].sum() * 100).map('{:,.1f}%'.format)
+            
+            fig_motivos = px.bar(
+                counts.head(10).sort_values('Volume', ascending=True),
+                x='Volume', y='Motivo', orientation='h', text='Porcentagem', color='Volume', color_continuous_scale='Blues'
+            )
+            fig_motivos.update_traces(textposition='outside')
+            fig_motivos.update_layout(height=450, coloraxis_showscale=False, yaxis_title=None)
+            st.plotly_chart(fig_motivos, use_container_width=True)
+        else:
+            st.info("Sem dados de motivos.")
+
+    st.markdown("### 📋 Lista Detalhada de Reincidentes")
+    
+    df_export = df_criticos[['ID_Ref', 'Episodios_Reais', 'Ultimo_Motivo', 'Status_Risco', 'Historico_Completo', 'Ultima_Data']]
+    
+    csv = df_export.to_csv(index=False, sep=';').encode('utf-8-sig')
+    st.download_button("📥 Baixar Relatório (CSV)", data=csv, file_name='relatorio_risco_cancelamento.csv', mime='text/csv')
+    
+    st.dataframe(
+        df_export.head(50), 
+        use_container_width=True, 
+        hide_index=True,
+        column_config={
+            "Historico_Completo": st.column_config.TextColumn("Histórico Cronológico (Evolução)", width="large"),
+            "Ultima_Data": st.column_config.DatetimeColumn("Última Interação", format="DD/MM/YYYY HH:mm"),
+            "Status_Risco": st.column_config.TextColumn("Status", help="Vermelho = Pedido de Cancelamento")
+        }
+    )
