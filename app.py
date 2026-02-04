@@ -42,7 +42,6 @@ def load_data():
     cols_texto = ['Colaborador', 'Setor', 'Portal', 'Transportadora', 'Motivo', 'Motivo_CRM', 'Numero_Pedido', 'Nota_Fiscal']
     for col in cols_texto:
         if col in df.columns:
-            # Remove ponto e vírgula e quebras de linha para CSV seguro
             df[col] = df[col].fillna("Não Informado").astype(str).replace("nan", "Não Informado").str.strip().str.replace(';', ',').str.replace('\n', ' ')
 
     # Data e Hora
@@ -127,6 +126,10 @@ elif len(date_range) == 1:
 else:
     start_date, end_date = min_date, max_date
 
+# CÁLCULO DE DIAS SELECIONADOS (ESSENCIAL PARA A MÉDIA DIÁRIA)
+num_dias_selecionados = (end_date - start_date).days + 1
+if num_dias_selecionados < 1: num_dias_selecionados = 1
+
 if 'Setor' in df_raw.columns:
     setores = st.sidebar.multiselect("Setor", options=sorted(df_raw['Setor'].unique()))
 else: setores = []
@@ -154,32 +157,37 @@ total_bruto = df_filtered.shape[0]
 total_liquido = df_filtered['Eh_Novo_Episodio'].sum()
 taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
 
-# --- NOVO CÁLCULO DE CAPACIDADE (GLOBAL) ---
-# 1. Agrupa por Colaborador e Setor para calcular TMA individual
+# --- CÁLCULO DE CAPACIDADE (META vs REAL) ---
 if 'Setor' in df_filtered.columns:
     grp_cols = ['Colaborador', 'Setor']
 else:
     grp_cols = ['Colaborador']
     
 df_metrics = df_filtered.groupby(grp_cols)['TMA_Valido'].agg(['mean', 'count']).reset_index()
-
-# 2. Filtra amostra mínima de 5 atendimentos para não distorcer com TMA de 1 minuto sem querer
 df_metrics = df_metrics[df_metrics['count'] > 5]
 
-# 3. Calcula Capacidade Individual: (480 min - 30%) / TMA
-TEMPO_UTIL_DIA = 480 * 0.70 # 336 minutos úteis
+# Capacidade Individual Diária (336 min úteis)
+TEMPO_UTIL_DIA = 480 * 0.70 
 df_metrics['Capacidade_Diaria'] = (TEMPO_UTIL_DIA / df_metrics['mean']).fillna(0).astype(int)
 
-# 4. Soma Totais
-total_capacidade_dia = df_metrics['Capacidade_Diaria'].sum()
+# META: Soma Capacidade Diária do Time
+meta_capacidade_dia = df_metrics['Capacidade_Diaria'].sum()
 
-# 5. Separa SAC vs PENDENCIA (Se a coluna Setor existir)
+# REAL: Média de produção diária no período selecionado
+realizado_medio_dia = int(total_liquido / num_dias_selecionados)
+
+# GAP: Diferença (Se negativo, fica vermelho)
+gap_capacidade = realizado_medio_dia - meta_capacidade_dia
+
+# Separação SAC vs PENDENCIA (Para o Tooltip)
 cap_sac = 0
 cap_pend = 0
 if 'Setor' in df_metrics.columns:
-    # Busca por texto que contenha "SAC" ou "Pend" (case insensitive)
     cap_sac = df_metrics[df_metrics['Setor'].astype(str).str.contains('SAC', case=False, na=False)]['Capacidade_Diaria'].sum()
     cap_pend = df_metrics[df_metrics['Setor'].astype(str).str.contains('Pend', case=False, na=False)]['Capacidade_Diaria'].sum()
+
+# Texto de ajuda detalhado
+help_capacidade = f"Meta baseada no TMA atual.\n\nDivisão da Meta:\n- SAC: {cap_sac}\n- Pendência: {cap_pend}\n\nRealizado Médio: {realizado_medio_dia}/dia"
 
 # KPI CARDS
 k1, k2, k3, k4 = st.columns(4)
@@ -187,9 +195,15 @@ k1.metric("📦 Total Registros (Bruto)", f"{total_bruto}")
 k2.metric("✅ Atendimentos Reais (2h)", f"{total_liquido}")
 k3.metric("⚠️ Taxa de Duplicidade", f"{taxa_duplicidade:.1f}%", delta_color="inverse")
 
-# CARD 4 SUBSTITUÍDO: CAPACIDADE EM VEZ DE ADERÊNCIA
-label_delta = f"SAC: {cap_sac} | Pendência: {cap_pend}" if 'Setor' in df_filtered.columns else "Detalhe por setor indisponível"
-k4.metric("🎯 Capacidade Diária (Time)", f"{total_capacidade_dia}", delta=label_delta)
+# CARD 4: CAPACIDADE COM ALERTA
+# delta_color="normal" -> Positivo=Verde, Negativo=Vermelho
+k4.metric(
+    "🎯 Capacidade Diária (Meta)", 
+    f"{meta_capacidade_dia}", 
+    delta=f"{gap_capacidade} (Real: {realizado_medio_dia})",
+    delta_color="normal",
+    help=help_capacidade
+)
 
 st.markdown("---")
 
@@ -226,7 +240,6 @@ with tab1:
 
     st.subheader("2. Projeção de Capacidade (Meta vs Real)")
     
-    # Reutiliza o df_metrics global, mas regrupa apenas por colaborador para o gráfico
     df_tma = df_filtered.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     df_tma.columns = ['Colaborador', 'TMA_Medio', 'Amostra']
     df_tma = df_tma[df_tma['Amostra'] > 5] 
