@@ -3,8 +3,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
-from datetime import timedelta
+from datetime import datetime, timedelta
 from streamlit_gsheets import GSheetsConnection
+import pytz # Para garantir horário do Brasil
 
 # ==============================================================================
 # 1. CONFIGURAÇÃO DA PÁGINA
@@ -126,7 +127,7 @@ elif len(date_range) == 1:
 else:
     start_date, end_date = min_date, max_date
 
-# CÁLCULO DE DIAS SELECIONADOS (ESSENCIAL PARA A MÉDIA DIÁRIA)
+# CÁLCULO DE DIAS
 num_dias_selecionados = (end_date - start_date).days + 1
 if num_dias_selecionados < 1: num_dias_selecionados = 1
 
@@ -157,7 +158,7 @@ total_bruto = df_filtered.shape[0]
 total_liquido = df_filtered['Eh_Novo_Episodio'].sum()
 taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
 
-# --- CÁLCULO DE CAPACIDADE (META vs REAL) ---
+# --- CÁLCULO DE CAPACIDADE & RITMO (PACING 07:00 as 18:00) ---
 if 'Setor' in df_filtered.columns:
     grp_cols = ['Colaborador', 'Setor']
 else:
@@ -166,28 +167,47 @@ else:
 df_metrics = df_filtered.groupby(grp_cols)['TMA_Valido'].agg(['mean', 'count']).reset_index()
 df_metrics = df_metrics[df_metrics['count'] > 5]
 
-# Capacidade Individual Diária (336 min úteis)
 TEMPO_UTIL_DIA = 480 * 0.70 
 df_metrics['Capacidade_Diaria'] = (TEMPO_UTIL_DIA / df_metrics['mean']).fillna(0).astype(int)
 
 # META: Soma Capacidade Diária do Time
 meta_capacidade_dia = df_metrics['Capacidade_Diaria'].sum()
 
-# REAL: Média de produção diária no período selecionado
+# REAL: Média de produção diária
 realizado_medio_dia = int(total_liquido / num_dias_selecionados)
 
-# GAP: Diferença (Se negativo, fica vermelho)
-gap_capacidade = realizado_medio_dia - meta_capacidade_dia
+# % DE ENTREGA
+percentual_entregue = (realizado_medio_dia / meta_capacidade_dia * 100) if meta_capacidade_dia > 0 else 0
 
-# Separação SAC vs PENDENCIA (Para o Tooltip)
-cap_sac = 0
-cap_pend = 0
-if 'Setor' in df_metrics.columns:
-    cap_sac = df_metrics[df_metrics['Setor'].astype(str).str.contains('SAC', case=False, na=False)]['Capacidade_Diaria'].sum()
-    cap_pend = df_metrics[df_metrics['Setor'].astype(str).str.contains('Pend', case=False, na=False)]['Capacidade_Diaria'].sum()
+# --- LÓGICA DO "VERMELHO/VERDE" AJUSTADA (07:00 - 18:00) ---
+fuso_br = pytz.timezone('America/Sao_Paulo')
+agora = datetime.now(fuso_br)
+hoje = agora.date()
 
-# Texto de ajuda detalhado
-help_capacidade = f"Meta baseada no TMA atual.\n\nDivisão da Meta:\n- SAC: {cap_sac}\n- Pendência: {cap_pend}\n\nRealizado Médio: {realizado_medio_dia}/dia"
+# Regra do Tempo
+if end_date < hoje:
+    progresso_esperado = 100.0 # Dias passados = 100% da meta exigida
+elif start_date > hoje:
+    progresso_esperado = 0.0
+else:
+    # Hoje
+    hora_atual = agora.hour
+    if hora_atual < 7:
+        progresso_esperado = 0.0
+    elif hora_atual >= 18:
+        progresso_esperado = 100.0
+    else:
+        # Entre 07:00 e 18:00 (11 horas de operação)
+        horas_passadas = hora_atual - 7
+        progresso_esperado = (horas_passadas / 11) * 100
+
+# Comparação
+if percentual_entregue >= progresso_esperado:
+    cor_ritmo = "normal" # Verde
+    texto_ritmo = f"🚀 {percentual_entregue:.1f}% da Meta (No Ritmo)"
+else:
+    cor_ritmo = "inverse" # Vermelho
+    texto_ritmo = f"🐢 {percentual_entregue:.1f}% da Meta (Atrasado)"
 
 # KPI CARDS
 k1, k2, k3, k4 = st.columns(4)
@@ -195,14 +215,13 @@ k1.metric("📦 Total Registros (Bruto)", f"{total_bruto}")
 k2.metric("✅ Atendimentos Reais (2h)", f"{total_liquido}")
 k3.metric("⚠️ Taxa de Duplicidade", f"{taxa_duplicidade:.1f}%", delta_color="inverse")
 
-# CARD 4: CAPACIDADE COM ALERTA
-# delta_color="normal" -> Positivo=Verde, Negativo=Vermelho
+# CARD 4: CAPACIDADE COM RITMO 07h-18h
 k4.metric(
     "🎯 Capacidade Diária (Meta)", 
     f"{meta_capacidade_dia}", 
-    delta=f"{gap_capacidade} (Real: {realizado_medio_dia})",
-    delta_color="normal",
-    help=help_capacidade
+    delta=texto_ritmo,
+    delta_color=cor_ritmo,
+    help=f"Horário Operacional: 07:00 às 18:00.\nTempo Decorrido: {progresso_esperado:.0f}%\n\nMeta Diária: {meta_capacidade_dia}\nRealizado: {realizado_medio_dia}"
 )
 
 st.markdown("---")
