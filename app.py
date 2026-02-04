@@ -1,118 +1,81 @@
-# --- BLOCO CORRIGIDO: PROJEÇÃO DE CAPACIDADE ---
-
+# --- INÍCIO DA SUBSTITUIÇÃO: PROJEÇÃO DE CAPACIDADE ---
 st.markdown("---")
-st.subheader("2. Projeção de Capacidade (Ajustada por Horário)")
+st.subheader("2. Projeção de Capacidade (Meta Ajustada ao Horário)")
 
-# 1. Inputs para simulação
 col_cap1, col_cap2 = st.columns(2)
 with col_cap1:
-    meta_tma_input = st.number_input(
-        "Definir Meta de TMA (segundos)", 
-        min_value=10, 
-        value=180, 
-        step=10,
-        help="Tempo Médio de Atendimento ideal para o cálculo da capacidade."
-    )
+    meta_tma_input = st.number_input("Meta TMA (seg)", min_value=10, value=180, step=10)
 with col_cap2:
-    jornada_padrao = st.number_input(
-        "Jornada Padrão (Horas)", 
-        min_value=1, 
-        value=8, 
-        help="Usado caso não haja registro de hora de entrada."
-    )
+    # Este input ajuda a definir o teto, mas o cálculo priorizará o horário real
+    horas_jornada = st.number_input("Jornada Máxima (h)", value=8)
 
-# 2. Preparação dos Dados (Correção do Erro e Lógica Proporcional)
-# Verifica se o dataframe não está vazio
+# Verifica se há dados filtrados
 if not df_selection.empty:
-    
-    # Agrupamos por colaborador para pegar a primeira e última ação do dia
-    # Isso define a "Jornada Real" da pessoa até o momento
+    # 1. Agrupar dados por colaborador
+    # Pegamos a primeira hora (entrada) e a última hora (saída/atual)
     df_perf = df_selection.groupby('Colaborador').agg(
-        TMA_Real=('TMA', 'mean'),
         Qtd_Realizada=('ID', 'count'),
-        Hora_Inicio=('Data', 'min'),
-        Hora_Fim=('Data', 'max')
+        Hora_Entrada=('Data', 'min'),
+        Hora_Ultima_Acao=('Data', 'max')
     ).reset_index()
 
-    # --- LÓGICA DE META PROPORCIONAL ---
-    def calcular_meta_ajustada(row):
-        # Se a pessoa só tem 1 registro, Hora Fim = Hora Inicio. 
-        # Nesse caso, assumimos que ela está trabalhando e usamos a hora atual ou jornada padrão.
-        # Aqui vamos calcular baseado na diferença de tempo registrada nos dados
+    # 2. Função para calcular a meta proporcional ao tempo trabalhado
+    def calcular_meta_proporcional(row):
+        # Calcula quantos segundos a pessoa trabalhou (Do 1º registro até o último)
+        # Se quiser considerar até o momento "agora", poderia usar datetime.now(), 
+        # mas usar 'Hora_Ultima_Acao' é mais seguro para dados históricos.
+        segundos_ativos = (row['Hora_Ultima_Acao'] - row['Hora_Entrada']).total_seconds()
         
-        segundos_trabalhados = (row['Hora_Fim'] - row['Hora_Inicio']).total_seconds()
+        # Se a pessoa acabou de entrar (ex: menos de 10 min), consideramos 1 hora mínima para não zerar a meta
+        segundos_considerados = max(segundos_ativos, 3600) 
         
-        # Se a diferença for muito pequena (ex: acabou de começar), 
-        # podemos projetar a jornada padrão ou usar o tempo decorrido real.
-        # Lógica: Se trabalhou menos de 10 min, consideramos a projeção da jornada padrão (meta cheia)
-        # OU se você prefere estritamente o realizado:
-        
-        horas_uteis = segundos_trabalhados / 3600
-        
-        # Se horas uteis for quase zero (ex: acabou de logar), usamos a jornada padrão para projetar o dia
-        # Se quiser calcular só o que passou, remova o 'max'.
-        tempo_para_calculo = max(horas_uteis, 0.5) # Mínimo de 30 min para não dar erro de divisão ou meta zero
-        
-        # Se quiser que a meta seja baseada na jornada PADRÃO (fixa) para quem já logou:
-        # tempo_para_calculo = jornada_padrao 
-        
-        # CÁLCULO DA META: (Horas * 3600) / TMA Alvo
-        # Ajuste aqui: Se a pessoa entrou meio dia e a jornada é até as 18h, ela tem 6h.
-        # Vamos assumir que a meta é sobre as horas TRABALHADAS registradas + projeção até o fim do turno.
-        
-        capacidade_teorica = (jornada_padrao * 3600) / meta_tma_input
-        return int(capacidade_teorica)
+        # A meta é: Tempo Disponível / TMA Alvo
+        meta = segundos_considerados / meta_tma_input
+        return int(meta)
 
-    # Aplica o cálculo
-    df_perf['Meta_Fixa'] = df_perf.apply(calcular_meta_ajustada, axis=1)
+    # 3. Aplica a lógica
+    df_perf['Meta_Fixa'] = df_perf.apply(calcular_meta_proporcional, axis=1)
     
-    # Adiciona cálculo de desvio
-    df_perf['Desvio'] = df_perf['Qtd_Realizada'] - df_perf['Meta_Fixa']
-    
-    # Ordena para o gráfico ficar bonito
+    # Adiciona a cor (Verde se bateu a meta, Vermelho se não)
+    df_perf['Cor'] = df_perf.apply(lambda x: '#00CC96' if x['Qtd_Realizada'] >= x['Meta_Fixa'] else '#EF553B', axis=1)
+
+    # 4. Gráfico
+    # Ordena do maior realizado para o menor
     df_perf = df_perf.sort_values('Qtd_Realizada', ascending=False)
-
-    # 3. Gráfico (Plotly) - O erro acontecia aqui pois 'Meta_Fixa' não existia
+    
     fig_cap = go.Figure()
 
     # Barra de Realizado
     fig_cap.add_trace(go.Bar(
         x=df_perf['Colaborador'], 
         y=df_perf['Qtd_Realizada'], 
-        name="Produção Real",
-        marker_color='#2E86C1',
+        name="Realizado",
         text=df_perf['Qtd_Realizada'],
-        textposition='auto'
+        textposition='auto',
+        marker_color='#2E86C1'
     ))
 
-    # Barra de Meta (Agora calculada corretamente antes)
+    # Barra de Meta (Calculada proporcionalmente)
     fig_cap.add_trace(go.Bar(
         x=df_perf['Colaborador'], 
         y=df_perf['Meta_Fixa'], 
-        name=f"Capacidade Meta (TMA {meta_tma_input}s)", 
-        marker_color='#00CC96', 
-        opacity=0.7,
+        name="Meta (Proporcional ao Horário)",
         text=df_perf['Meta_Fixa'],
-        textposition='auto'
+        textposition='auto',
+        marker_color='rgba(50, 50, 50, 0.2)', # Cor neutra para meta
+        marker_line_color='#00CC96',
+        marker_line_width=2,
+        opacity=0.6
     ))
 
     fig_cap.update_layout(
-        title="Capacidade: Realizado vs Meta Ajustada",
-        xaxis_title="Colaborador",
-        yaxis_title="Quantidade de Casos",
-        barmode='group',
-        height=400,
-        margin=dict(l=20, r=20, t=50, b=20)
+        title="Capacidade: Real vs Meta (Ajustada pelo horário de entrada)",
+        barmode='overlay', # Sobrepõe as barras para facilitar comparação
+        height=400
     )
 
     st.plotly_chart(fig_cap, use_container_width=True)
 
-    # Tabela de detalhes logo abaixo
-    st.dataframe(
-        df_perf[['Colaborador', 'Hora_Inicio', 'Qtd_Realizada', 'Meta_Fixa', 'Desvio']], 
-        use_container_width=True,
-        hide_index=True
-    )
-
 else:
-    st.warning("Sem dados disponíveis para calcular a capacidade com os filtros atuais.")
+    st.warning("Sem dados para calcular capacidade.")
+# --- FIM DA SUBSTITUIÇÃO ---
