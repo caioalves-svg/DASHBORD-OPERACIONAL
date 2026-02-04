@@ -91,7 +91,7 @@ def load_data():
 
     return df
 
-# --- BOTÃO DE REFRESH MANUAL (Melhoria 1) ---
+# --- BOTÃO DE REFRESH MANUAL ---
 st.sidebar.title("Dashboard Operacional")
 if st.sidebar.button("🔄 Atualizar Dados Agora"):
     st.cache_data.clear()
@@ -145,26 +145,51 @@ if portais: df_filtered = df_filtered[df_filtered['Portal'].isin(portais)]
 if transportadoras: df_filtered = df_filtered[df_filtered['Transportadora'].isin(transportadoras)]
 
 # ==============================================================================
-# 4. DASHBOARD
+# 4. DASHBOARD & KPIS
 # ==============================================================================
-# st.title removido pois já tem na sidebar, mas pode manter se preferir
 st.markdown("## 📊 Visão Geral") 
 
-# KPIs
+# KPIs Básicos
 total_bruto = df_filtered.shape[0]
 total_liquido = df_filtered['Eh_Novo_Episodio'].sum()
 taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
-crm_ok = df_filtered[~df_filtered['Motivo_CRM'].isin(['SEM ABERTURA DE CRM', 'Não Informado'])].shape[0]
-aderencia_crm = (crm_ok / total_bruto * 100) if total_bruto > 0 else 0
 
-# Delta da Aderência (Melhoria 2)
-delta_crm = aderencia_crm - 95 # Meta 95%
+# --- NOVO CÁLCULO DE CAPACIDADE (GLOBAL) ---
+# 1. Agrupa por Colaborador e Setor para calcular TMA individual
+if 'Setor' in df_filtered.columns:
+    grp_cols = ['Colaborador', 'Setor']
+else:
+    grp_cols = ['Colaborador']
+    
+df_metrics = df_filtered.groupby(grp_cols)['TMA_Valido'].agg(['mean', 'count']).reset_index()
 
+# 2. Filtra amostra mínima de 5 atendimentos para não distorcer com TMA de 1 minuto sem querer
+df_metrics = df_metrics[df_metrics['count'] > 5]
+
+# 3. Calcula Capacidade Individual: (480 min - 30%) / TMA
+TEMPO_UTIL_DIA = 480 * 0.70 # 336 minutos úteis
+df_metrics['Capacidade_Diaria'] = (TEMPO_UTIL_DIA / df_metrics['mean']).fillna(0).astype(int)
+
+# 4. Soma Totais
+total_capacidade_dia = df_metrics['Capacidade_Diaria'].sum()
+
+# 5. Separa SAC vs PENDENCIA (Se a coluna Setor existir)
+cap_sac = 0
+cap_pend = 0
+if 'Setor' in df_metrics.columns:
+    # Busca por texto que contenha "SAC" ou "Pend" (case insensitive)
+    cap_sac = df_metrics[df_metrics['Setor'].astype(str).str.contains('SAC', case=False, na=False)]['Capacidade_Diaria'].sum()
+    cap_pend = df_metrics[df_metrics['Setor'].astype(str).str.contains('Pend', case=False, na=False)]['Capacidade_Diaria'].sum()
+
+# KPI CARDS
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("📦 Total Registros (Bruto)", f"{total_bruto}")
 k2.metric("✅ Atendimentos Reais (2h)", f"{total_liquido}")
 k3.metric("⚠️ Taxa de Duplicidade", f"{taxa_duplicidade:.1f}%", delta_color="inverse")
-k4.metric("🛡️ Aderência CRM", f"{aderencia_crm:.1f}%", delta=f"{delta_crm:.1f}% (Meta 95%)")
+
+# CARD 4 SUBSTITUÍDO: CAPACIDADE EM VEZ DE ADERÊNCIA
+label_delta = f"SAC: {cap_sac} | Pendência: {cap_pend}" if 'Setor' in df_filtered.columns else "Detalhe por setor indisponível"
+k4.metric("🎯 Capacidade Diária (Time)", f"{total_capacidade_dia}", delta=label_delta)
 
 st.markdown("---")
 
@@ -176,15 +201,18 @@ with tab1:
     
     df_vol = df_filtered.groupby('Colaborador').agg(
         Bruto=('Data', 'count'),
-        Liquido=('Eh_Novo_Episodio', 'sum')
+        Liquido=('Eh_Novo_Episodio', 'sum'),
+        Erros_CRM=('Motivo_CRM', lambda x: x.isin(['SEM ABERTURA DE CRM', 'Não Informado']).sum())
     ).reset_index().sort_values('Liquido', ascending=True)
     
-    df_melt = df_vol.melt(id_vars='Colaborador', value_vars=['Bruto', 'Liquido'], var_name='Métrica', value_name='Volume')
+    df_melt = df_vol.melt(id_vars=['Colaborador', 'Erros_CRM'], value_vars=['Bruto', 'Liquido'], var_name='Métrica', value_name='Volume')
     
     max_vol = df_melt['Volume'].max()
     
     fig_prod = px.bar(df_melt, y='Colaborador', x='Volume', color='Métrica', barmode='group', orientation='h',
-                      color_discrete_map={'Bruto': '#FFA15A', 'Liquido': '#19D3F3'}, text='Volume')
+                      color_discrete_map={'Bruto': '#FFA15A', 'Liquido': '#19D3F3'}, text='Volume',
+                      hover_data={'Erros_CRM': True, 'Métrica': True, 'Volume': True, 'Colaborador': False})
+    
     fig_prod.update_traces(textposition='outside')
     fig_prod.update_layout(
         height=450, 
@@ -198,12 +226,12 @@ with tab1:
 
     st.subheader("2. Projeção de Capacidade (Meta vs Real)")
     
+    # Reutiliza o df_metrics global, mas regrupa apenas por colaborador para o gráfico
     df_tma = df_filtered.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     df_tma.columns = ['Colaborador', 'TMA_Medio', 'Amostra']
     df_tma = df_tma[df_tma['Amostra'] > 5] 
     
-    TEMPO_UTIL = 480 * 0.70
-    df_tma['Capacidade_Diaria'] = (TEMPO_UTIL / df_tma['TMA_Medio']).fillna(0).astype(int)
+    df_tma['Capacidade_Diaria'] = (TEMPO_UTIL_DIA / df_tma['TMA_Medio']).fillna(0).astype(int)
     df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=False)
 
     max_cap = df_tma['Capacidade_Diaria'].max() if not df_tma.empty else 100
@@ -329,7 +357,6 @@ with tab3:
         else:
             st.info("Sem dados de motivos.")
 
-    # Tabela Detalhada (Melhoria 3: Destaque visual)
     st.markdown("### 📋 Lista Detalhada de Reincidentes")
     
     df_export = df_criticos[['ID_Ref', 'Episodios_Reais', 'Ultimo_Motivo', 'Status_Risco', 'Historico_Completo', 'Ultima_Data']]
