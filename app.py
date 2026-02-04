@@ -1,3 +1,10 @@
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+
+# --- AQUI VEM O SEU CÓDIGO DE CARREGAR DADOS E A BARRA LATERAL ---
+# (Não apague a parte onde você carrega o arquivo excel/csv e cria o 'df_selection')
 # --- INÍCIO DA SUBSTITUIÇÃO: PROJEÇÃO DE CAPACIDADE ---
 st.markdown("---")
 st.subheader("2. Projeção de Capacidade (Meta Ajustada ao Horário)")
