@@ -154,39 +154,11 @@ total_bruto = df_filtered.shape[0]
 total_liquido = df_filtered['Eh_Novo_Episodio'].sum()
 taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
 
-# --- NOVO CÁLCULO DE CAPACIDADE (GLOBAL) ---
-# 1. Agrupa por Colaborador e Setor para calcular TMA individual
-if 'Setor' in df_filtered.columns:
-    grp_cols = ['Colaborador', 'Setor']
-else:
-    grp_cols = ['Colaborador']
-    
-df_metrics = df_filtered.groupby(grp_cols)['TMA_Valido'].agg(['mean', 'count']).reset_index()
-
-# 2. Filtra amostra mínima de 5 atendimentos
-df_metrics = df_metrics[df_metrics['count'] > 5]
-
-# 3. Calcula Capacidade Individual: (Jornada 07:30 - 17:18 = 9h48m = 588 min) - 30% / TMA
-# 588 minutos * 0.7 = 411.6 minutos úteis
-TEMPO_UTIL_DIA = 588 * 0.70 
-df_metrics['Capacidade_Diaria'] = (TEMPO_UTIL_DIA / df_metrics['mean']).fillna(0).astype(int)
-
-# 4. Soma Totais
-total_capacidade_dia = df_metrics['Capacidade_Diaria'].sum()
-
-# 5. Separa SAC vs PENDENCIA
-cap_sac = 0
-cap_pend = 0
-if 'Setor' in df_metrics.columns:
-    cap_sac = df_metrics[df_metrics['Setor'].astype(str).str.contains('SAC', case=False, na=False)]['Capacidade_Diaria'].sum()
-    cap_pend = df_metrics[df_metrics['Setor'].astype(str).str.contains('Pend', case=False, na=False)]['Capacidade_Diaria'].sum()
-
-# KPI CARDS
-k1, k2, k3, k4 = st.columns(4)
+# KPI CARDS - REMOVIDO "CAPACIDADE DIÁRIA" DO TOPO
+k1, k2, k3 = st.columns(3)
 k1.metric("📦 Total Registros (Bruto)", f"{total_bruto}")
 k2.metric("✅ Atendimentos Reais (2h)", f"{total_liquido}")
 k3.metric("⚠️ Taxa de Duplicidade", f"{taxa_duplicidade:.1f}%", delta_color="inverse")
-k4.metric("🎯 Capacidade Diária (Time)", f"{total_capacidade_dia}", delta=f"SAC: {cap_sac} | Pendência: {cap_pend}" if 'Setor' in df_filtered.columns else "Detalhe indisponível")
 
 st.markdown("---")
 
@@ -223,10 +195,10 @@ with tab1:
 
     st.subheader("2. Projeção de Capacidade (Meta vs Real)")
     
-    # --- CÁLCULO DE META DINÂMICA (AJUSTADO PARA 07:30 - 17:18) ---
+    # --- CÁLCULO DE META DINÂMICA (07:30 - 17:18) ---
     TMA_TARGET_SAC = 5 + (23/60)  # 5.383 min
     TMA_TARGET_PEND = 5 + (8/60)  # 5.133 min
-    FIM_JORNADA_HORA = 17.3       # 17:18 = 17 + 18/60 = 17.3
+    FIM_JORNADA_HORA = 17.3       # 17:18
 
     # Identifica Hora de Chegada
     df_presenca = df_filtered.groupby(['Colaborador', 'Data_Str', 'Setor'])['Data_Completa'].min().reset_index()
@@ -274,7 +246,6 @@ with tab1:
 
     # Projeção (Cor)
     agora = datetime.now()
-    # Horas restantes baseado em 17:18 (17.3)
     horas_restantes_hoje = max(0, 17.3 - (agora.hour + agora.minute/60))
     is_today = end_date == datetime.today().date()
 
@@ -296,7 +267,7 @@ with tab1:
     perc_sac = (realizado_sac / meta_total_sac * 100) if meta_total_sac > 0 else 0
     perc_pend = (realizado_pend / meta_total_pend * 100) if meta_total_pend > 0 else 0
 
-    # Cards de Meta (Abaixo do Gráfico de Volume na Aba 1)
+    # Cards de Meta (SEPARADOS E NO TOPO DO GRÁFICO DE CAPACIDADE)
     cm1, cm2 = st.columns(2)
     cm1.metric("🎯 Meta SAC (%)", f"{perc_sac:.1f}%", delta=f"{realizado_sac} / {meta_total_sac} (Meta)", delta_color=cor_sac)
     cm2.metric("⏳ Meta Pendência (%)", f"{perc_pend:.1f}%", delta=f"{realizado_pend} / {meta_total_pend} (Meta)", delta_color=cor_pend)
@@ -308,7 +279,7 @@ with tab1:
     df_tma.columns = ['Colaborador', 'TMA_Medio', 'Amostra']
     df_tma = df_tma[df_tma['Amostra'] > 5] 
     
-    # Dia Cheio: 07:30 a 17:18 = 9.8 horas * 60 * 0.7 = 411.6 min
+    # Dia Cheio: 07:30 a 17:18
     TEMPO_UTIL_DIA_GRAFICO = (17.3 - 7.5) * 60 * 0.70
     
     df_tma['Capacidade_Diaria'] = (TEMPO_UTIL_DIA_GRAFICO / df_tma['TMA_Medio']).fillna(0).astype(int)
