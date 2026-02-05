@@ -145,7 +145,7 @@ if portais: df_filtered = df_filtered[df_filtered['Portal'].isin(portais)]
 if transportadoras: df_filtered = df_filtered[df_filtered['Transportadora'].isin(transportadoras)]
 
 # ==============================================================================
-# 4. DASHBOARD & KPIS AVANÇADOS (METAS)
+# 4. DASHBOARD & KPIS
 # ==============================================================================
 st.markdown("## 📊 Visão Geral") 
 
@@ -154,127 +154,39 @@ total_bruto = df_filtered.shape[0]
 total_liquido = df_filtered['Eh_Novo_Episodio'].sum()
 taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
 
-# --- CÁLCULO DE META DINÂMICA (SAC vs PENDÊNCIA) ---
-# Constantes
-TMA_TARGET_SAC = 5 + (23/60)  # 5.383 min
-TMA_TARGET_PEND = 5 + (8/60)  # 5.133 min
-FIM_JORNADA_HORA = 18
-
-# 1. Identifica Primeiro Registro de cada pessoa NO DIA (Para saber hora de chegada)
-# Agrupa por Colaborador e Dia
-df_presenca = df_filtered.groupby(['Colaborador', 'Data_Str', 'Setor'])['Data_Completa'].min().reset_index()
-df_presenca.rename(columns={'Data_Completa': 'Hora_Entrada'}, inplace=True)
-
-# 2. Função para calcular meta individual
-def calcular_meta_individual(row):
-    hora_entrada = row['Hora_Entrada'].hour + (row['Hora_Entrada'].minute / 60)
-    
-    # Se chegou antes das 7, considera 7. Se chegou depois das 18, meta é 0.
-    hora_inicio_valida = max(7, hora_entrada)
-    
-    horas_disponiveis = FIM_JORNADA_HORA - hora_inicio_valida
-    if horas_disponiveis <= 0:
-        return 0, 0 # Sem meta
-    
-    minutos_totais = horas_disponiveis * 60
-    minutos_uteis = minutos_totais * 0.70 # Tira 30% ociosidade/almoço
-    
-    setor_str = str(row['Setor']).upper()
-    
-    # Define TMA Alvo baseado no Setor
-    tma_alvo = TMA_TARGET_SAC # Default SAC
-    if 'PEND' in setor_str or 'ÊNCIA' in setor_str:
-        tma_alvo = TMA_TARGET_PEND
-    
-    meta = int(minutos_uteis / tma_alvo)
-    
-    # Retorna meta separada por tipo
-    meta_sac = meta if tma_alvo == TMA_TARGET_SAC else 0
-    meta_pend = meta if tma_alvo == TMA_TARGET_PEND else 0
-    
-    return meta_sac, meta_pend
-
-# Aplica cálculo
-metas = df_presenca.apply(calcular_meta_individual, axis=1)
-df_presenca['Meta_SAC'] = [x[0] for x in metas]
-df_presenca['Meta_PEND'] = [x[1] for x in metas]
-
-# Totais de Meta
-meta_total_sac = df_presenca['Meta_SAC'].sum()
-meta_total_pend = df_presenca['Meta_PEND'].sum()
-
-# 3. Realizado por Setor
-# Precisamos contar quantos atendimentos REAIS (Líquidos) cada setor fez
-realizado_sac = 0
-realizado_pend = 0
-
+# --- NOVO CÁLCULO DE CAPACIDADE (GLOBAL) ---
+# 1. Agrupa por Colaborador e Setor para calcular TMA individual
 if 'Setor' in df_filtered.columns:
-    df_sac_real = df_filtered[df_filtered['Setor'].astype(str).str.contains('SAC', case=False, na=False)]
-    df_pend_real = df_filtered[df_filtered['Setor'].astype(str).str.contains('Pend', case=False, na=False)]
+    grp_cols = ['Colaborador', 'Setor']
+else:
+    grp_cols = ['Colaborador']
     
-    realizado_sac = df_sac_real['Eh_Novo_Episodio'].sum()
-    realizado_pend = df_pend_real['Eh_Novo_Episodio'].sum()
+df_metrics = df_filtered.groupby(grp_cols)['TMA_Valido'].agg(['mean', 'count']).reset_index()
 
-# 4. Lógica de Projeção (Para definir a cor Verde/Vermelho)
-# Precisamos saber se HOJE, no ritmo atual, vai bater a meta.
-agora = datetime.now()
-horas_restantes_hoje = max(0, 18 - (agora.hour + agora.minute/60))
+# 2. Filtra amostra mínima de 5 atendimentos
+df_metrics = df_metrics[df_metrics['count'] > 5]
 
-# Se o filtro não for de "hoje", a projeção é o próprio realizado (passado não muda)
-is_today = end_date == datetime.today().date()
+# 3. Calcula Capacidade Individual: (Jornada 07:30 - 17:18 = 9h48m = 588 min) - 30% / TMA
+# 588 minutos * 0.7 = 411.6 minutos úteis
+TEMPO_UTIL_DIA = 588 * 0.70 
+df_metrics['Capacidade_Diaria'] = (TEMPO_UTIL_DIA / df_metrics['mean']).fillna(0).astype(int)
 
-def get_status_cor(realizado, meta, tma_target, colaboradores_ativos_setor):
-    if meta == 0: return "off"
-    
-    perc_concluido = (realizado / meta) * 100
-    
-    if is_today:
-        # Projeção: O que já fiz + (Pessoas * Tempo Restante Útil / TMA)
-        # Assumindo que todos que bateram ponto continuam trabalhando
-        capacidade_restante = (colaboradores_ativos_setor * horas_restantes_hoje * 60 * 0.70) / tma_target
-        projecao_final = realizado + capacidade_restante
-        
-        vai_bater_meta = projecao_final >= meta
-    else:
-        # Passado: Bateu ou não?
-        vai_bater_meta = realizado >= meta
-        
-    return "normal" if vai_bater_meta else "inverse" # Normal = Verde (Delta positivo), Inverse = Vermelho (Delta negativo)
+# 4. Soma Totais
+total_capacidade_dia = df_metrics['Capacidade_Diaria'].sum()
 
-# Contagem de pessoas ativas por setor (para cálculo de projeção)
-qtd_pessoas_sac = df_presenca[df_presenca['Meta_SAC'] > 0].shape[0]
-qtd_pessoas_pend = df_presenca[df_presenca['Meta_PEND'] > 0].shape[0]
+# 5. Separa SAC vs PENDENCIA
+cap_sac = 0
+cap_pend = 0
+if 'Setor' in df_metrics.columns:
+    cap_sac = df_metrics[df_metrics['Setor'].astype(str).str.contains('SAC', case=False, na=False)]['Capacidade_Diaria'].sum()
+    cap_pend = df_metrics[df_metrics['Setor'].astype(str).str.contains('Pend', case=False, na=False)]['Capacidade_Diaria'].sum()
 
-cor_sac = get_status_cor(realizado_sac, meta_total_sac, TMA_TARGET_SAC, qtd_pessoas_sac)
-cor_pend = get_status_cor(realizado_pend, meta_total_pend, TMA_TARGET_PEND, qtd_pessoas_pend)
-
-# Porcentagens para exibição
-perc_sac = (realizado_sac / meta_total_sac * 100) if meta_total_sac > 0 else 0
-perc_pend = (realizado_pend / meta_total_pend * 100) if meta_total_pend > 0 else 0
-
-# --- EXIBIÇÃO DOS CARDS ---
-# Vamos usar 5 colunas para caber tudo organizado
-k1, k2, k3, k4, k5 = st.columns(5)
-
-k1.metric("📦 Total Bruto", f"{total_bruto}")
-k2.metric("✅ Real (2h)", f"{total_liquido}")
-k3.metric("⚠️ Duplicidade", f"{taxa_duplicidade:.1f}%", delta_color="inverse")
-
-# Card Meta SAC
-k4.metric(
-    "🎯 Meta SAC (%)", 
-    f"{perc_sac:.1f}%", 
-    delta=f"{realizado_sac} / {meta_total_sac} (Meta)",
-    delta_color=cor_sac # Verde se a projeção indica que vai bater, Vermelho se não
-)
-
-# Card Meta Pendência
-k5.metric(
-    "⏳ Meta Pendência (%)", 
-    f"{perc_pend:.1f}%", 
-    delta=f"{realizado_pend} / {meta_total_pend} (Meta)",
-    delta_color=cor_pend
-)
+# KPI CARDS
+k1, k2, k3, k4 = st.columns(4)
+k1.metric("📦 Total Registros (Bruto)", f"{total_bruto}")
+k2.metric("✅ Atendimentos Reais (2h)", f"{total_liquido}")
+k3.metric("⚠️ Taxa de Duplicidade", f"{taxa_duplicidade:.1f}%", delta_color="inverse")
+k4.metric("🎯 Capacidade Diária (Time)", f"{total_capacidade_dia}", delta=f"SAC: {cap_sac} | Pendência: {cap_pend}" if 'Setor' in df_filtered.columns else "Detalhe indisponível")
 
 st.markdown("---")
 
@@ -311,35 +223,110 @@ with tab1:
 
     st.subheader("2. Projeção de Capacidade (Meta vs Real)")
     
+    # --- CÁLCULO DE META DINÂMICA (AJUSTADO PARA 07:30 - 17:18) ---
+    TMA_TARGET_SAC = 5 + (23/60)  # 5.383 min
+    TMA_TARGET_PEND = 5 + (8/60)  # 5.133 min
+    FIM_JORNADA_HORA = 17.3       # 17:18 = 17 + 18/60 = 17.3
+
+    # Identifica Hora de Chegada
+    df_presenca = df_filtered.groupby(['Colaborador', 'Data_Str', 'Setor'])['Data_Completa'].min().reset_index()
+    df_presenca.rename(columns={'Data_Completa': 'Hora_Entrada'}, inplace=True)
+
+    def calcular_meta_individual(row):
+        hora_entrada = row['Hora_Entrada'].hour + (row['Hora_Entrada'].minute / 60)
+        
+        # Início Jornada: 07:30 (7.5)
+        hora_inicio_valida = max(7.5, hora_entrada)
+        
+        horas_disponiveis = FIM_JORNADA_HORA - hora_inicio_valida
+        if horas_disponiveis <= 0:
+            return 0, 0
+        
+        minutos_totais = horas_disponiveis * 60
+        minutos_uteis = minutos_totais * 0.70 # 30% Ociosidade
+        
+        setor_str = str(row['Setor']).upper()
+        tma_alvo = TMA_TARGET_SAC 
+        if 'PEND' in setor_str or 'ÊNCIA' in setor_str:
+            tma_alvo = TMA_TARGET_PEND
+        
+        meta = int(minutos_uteis / tma_alvo)
+        
+        meta_sac = meta if tma_alvo == TMA_TARGET_SAC else 0
+        meta_pend = meta if tma_alvo == TMA_TARGET_PEND else 0
+        
+        return meta_sac, meta_pend
+
+    metas = df_presenca.apply(calcular_meta_individual, axis=1)
+    df_presenca['Meta_SAC'] = [x[0] for x in metas]
+    df_presenca['Meta_PEND'] = [x[1] for x in metas]
+
+    # Totais
+    meta_total_sac = df_presenca['Meta_SAC'].sum()
+    meta_total_pend = df_presenca['Meta_PEND'].sum()
+
+    # Realizado
+    realizado_sac = 0
+    realizado_pend = 0
+    if 'Setor' in df_filtered.columns:
+        realizado_sac = df_filtered[df_filtered['Setor'].astype(str).str.contains('SAC', case=False, na=False)]['Eh_Novo_Episodio'].sum()
+        realizado_pend = df_filtered[df_filtered['Setor'].astype(str).str.contains('Pend', case=False, na=False)]['Eh_Novo_Episodio'].sum()
+
+    # Projeção (Cor)
+    agora = datetime.now()
+    # Horas restantes baseado em 17:18 (17.3)
+    horas_restantes_hoje = max(0, 17.3 - (agora.hour + agora.minute/60))
+    is_today = end_date == datetime.today().date()
+
+    def get_status_cor(realizado, meta, tma_target, colaboradores_ativos_setor):
+        if meta == 0: return "off"
+        if is_today:
+            capacidade_restante = (colaboradores_ativos_setor * horas_restantes_hoje * 60 * 0.70) / tma_target
+            projecao_final = realizado + capacidade_restante
+            return "normal" if projecao_final >= meta else "inverse"
+        else:
+            return "normal" if realizado >= meta else "inverse"
+
+    qtd_pessoas_sac = df_presenca[df_presenca['Meta_SAC'] > 0].shape[0]
+    qtd_pessoas_pend = df_presenca[df_presenca['Meta_PEND'] > 0].shape[0]
+
+    cor_sac = get_status_cor(realizado_sac, meta_total_sac, TMA_TARGET_SAC, qtd_pessoas_sac)
+    cor_pend = get_status_cor(realizado_pend, meta_total_pend, TMA_TARGET_PEND, qtd_pessoas_pend)
+    
+    perc_sac = (realizado_sac / meta_total_sac * 100) if meta_total_sac > 0 else 0
+    perc_pend = (realizado_pend / meta_total_pend * 100) if meta_total_pend > 0 else 0
+
+    # Cards de Meta (Abaixo do Gráfico de Volume na Aba 1)
+    cm1, cm2 = st.columns(2)
+    cm1.metric("🎯 Meta SAC (%)", f"{perc_sac:.1f}%", delta=f"{realizado_sac} / {meta_total_sac} (Meta)", delta_color=cor_sac)
+    cm2.metric("⏳ Meta Pendência (%)", f"{perc_pend:.1f}%", delta=f"{realizado_pend} / {meta_total_pend} (Meta)", delta_color=cor_pend)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Gráfico de Capacidade Individual
     df_tma = df_filtered.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     df_tma.columns = ['Colaborador', 'TMA_Medio', 'Amostra']
     df_tma = df_tma[df_tma['Amostra'] > 5] 
     
-    # AQUI TAMBÉM ATUALIZAMOS O CÁLCULO VISUAL DO GRÁFICO PARA REFLETIR 07h-18h
-    TEMPO_UTIL_DIA = (18 - 7) * 60 * 0.70 # 11h * 60 * 0.7 = 462 min úteis (padrão dia cheio)
+    # Dia Cheio: 07:30 a 17:18 = 9.8 horas * 60 * 0.7 = 411.6 min
+    TEMPO_UTIL_DIA_GRAFICO = (17.3 - 7.5) * 60 * 0.70
     
-    df_tma['Capacidade_Diaria'] = (TEMPO_UTIL_DIA / df_tma['TMA_Medio']).fillna(0).astype(int)
+    df_tma['Capacidade_Diaria'] = (TEMPO_UTIL_DIA_GRAFICO / df_tma['TMA_Medio']).fillna(0).astype(int)
     df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=False)
 
     max_cap = df_tma['Capacidade_Diaria'].max() if not df_tma.empty else 100
     y_limit = max_cap * 1.25
 
     fig_cap = go.Figure()
-    
     fig_cap.add_trace(go.Bar(
         x=df_tma['Colaborador'], y=df_tma['Capacidade_Diaria'], 
         name='Capacidade Projetada (Dia Cheio)', marker_color='#00CC96', text=df_tma['Capacidade_Diaria'], textposition='outside'
     ))
-    
     fig_cap.add_trace(go.Scatter(
         x=df_tma['Colaborador'], y=df_tma['TMA_Medio'], 
         mode='lines+markers+text',
-        name='TMA Atual (min)', 
-        marker=dict(color='#EF553B', size=8),
-        line=dict(color='#EF553B', width=2),
-        text=df_tma['TMA_Medio'].apply(lambda x: f"{x:.1f}'"), 
-        textposition='top center',
-        yaxis='y2'
+        name='TMA Atual (min)', marker=dict(color='#EF553B', size=8), line=dict(color='#EF553B', width=2),
+        text=df_tma['TMA_Medio'].apply(lambda x: f"{x:.1f}'"), textposition='top center', yaxis='y2'
     ))
     
     fig_cap.update_layout(
@@ -350,7 +337,7 @@ with tab1:
         xaxis=dict(title='Colaborador')
     )
     st.plotly_chart(fig_cap, use_container_width=True)
-    st.caption("Nota: O gráfico acima projeta um dia cheio (07h às 18h) para fins comparativos de performance.")
+    st.caption("Nota: O gráfico projeta um dia cheio (07:30 às 17:18) para fins comparativos.")
 
     st.markdown("---")
 
