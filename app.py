@@ -104,17 +104,25 @@ except Exception as e:
     st.stop()
 
 # ==============================================================================
-# 3. FILTROS
+# 3. FILTROS (LÓGICA DO DIA ATUAL)
 # ==============================================================================
 st.sidebar.header("🔍 Filtros")
 st.sidebar.markdown("---")
 
 min_date = df_raw['Data'].min().date()
-max_date = df_raw['Data'].max().date()
+# Garante que o calendário vá pelo menos até HOJE, mesmo que a planilha esteja atrasada
+max_date = max(df_raw['Data'].max().date(), datetime.now().date())
+today = datetime.now().date()
+
+# Se 'hoje' for menor que a data mínima da planilha (caso raro de planilha futura), ajusta
+if today < min_date:
+    default_val = [min_date, min_date]
+else:
+    default_val = [today, today]
 
 date_range = st.sidebar.date_input(
     "Período",
-    value=[min_date, max_date],
+    value=default_val, # Valor padrão: Hoje
     min_value=min_date,
     max_value=max_date,
     format="DD/MM/YYYY"
@@ -125,7 +133,7 @@ if len(date_range) == 2:
 elif len(date_range) == 1:
     start_date, end_date = date_range[0], date_range[0]
 else:
-    start_date, end_date = min_date, max_date
+    start_date, end_date = today, today
 
 if 'Setor' in df_raw.columns:
     setores = st.sidebar.multiselect("Setor", options=sorted(df_raw['Setor'].unique()))
@@ -154,7 +162,7 @@ total_bruto = df_filtered.shape[0]
 total_liquido = df_filtered['Eh_Novo_Episodio'].sum()
 taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
 
-# KPI CARDS - REMOVIDO "CAPACIDADE DIÁRIA" DO TOPO
+# KPI CARDS
 k1, k2, k3 = st.columns(3)
 k1.metric("📦 Total Registros (Bruto)", f"{total_bruto}")
 k2.metric("✅ Atendimentos Reais (2h)", f"{total_liquido}")
