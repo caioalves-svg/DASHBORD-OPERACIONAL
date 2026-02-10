@@ -68,12 +68,32 @@ def load_data():
     df['Data_Str'] = df['Data'].dt.strftime('%Y-%m-%d')
     df['Chave_Unica_Dia'] = df['Data_Str'] + "_" + df['Colaborador'] + "_" + df['ID_Ref']
 
-    # --- LÓGICA 2 HORAS ---
+    # --- LÓGICA 2 HORAS (COM EXCEÇÕES PARA SAC) ---
     df = df.sort_values(by=['ID_Ref', 'Data_Completa'])
     df['Tempo_Desde_Ultimo_Contato'] = df.groupby('ID_Ref')['Data_Completa'].diff()
     
+    # Flags auxiliares para as regras de negócio
+    # Verifica se é SAC
+    is_sac = df['Setor'].astype(str).str.upper().str.contains('SAC', na=False)
+    
+    # Verifica se NF é "SEM NF"
+    is_sem_nf = df['Nota_Fiscal'].astype(str).str.upper().str.contains('SEM NF', na=False)
+    
+    # Verifica se Motivo é "RECLAME AQUI"
+    is_reclame_aqui = df['Motivo'].astype(str).str.upper().str.contains('RECLAME AQUI', na=False)
+
+    # Condição padrão: Tempo > 2h ou Primeiro registro
+    condicao_tempo = (df['Tempo_Desde_Ultimo_Contato'].isnull()) | (df['Tempo_Desde_Ultimo_Contato'] > pd.Timedelta(hours=2))
+
+    # APLICAÇÃO DA LÓGICA:
+    # É novo episódio SE:
+    # 1. Passou 2 horas (condicao_tempo)
+    # OU
+    # 2. É SAC E é "SEM NF"
+    # OU
+    # 3. É SAC E é "RECLAME AQUI"
     df['Eh_Novo_Episodio'] = np.where(
-        (df['Tempo_Desde_Ultimo_Contato'].isnull()) | (df['Tempo_Desde_Ultimo_Contato'] > pd.Timedelta(hours=2)), 
+        condicao_tempo | (is_sac & is_sem_nf) | (is_sac & is_reclame_aqui), 
         1, 
         0
     )
