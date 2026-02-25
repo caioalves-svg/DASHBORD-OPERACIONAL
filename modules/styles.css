@@ -7,18 +7,19 @@ header {
     height: 0 !important;
 }
 
+/* AQUI FOI O AJUSTE DE MARGEM: Deixei mais espaçado (2rem em vez de 0.5rem) */
 .block-container {
-    padding-top: 0.5rem !important;
-    padding-bottom: 1rem !important;
+    padding-top: 2rem !important;
+    padding-bottom: 3rem !important;
     margin-top: 0 !important;
 }
 
 div[data-testid="stAppViewBlockContainer"] {
-    padding-top: 0.5rem !important;
+    padding-top: 2rem !important;
 }
 
 div[data-testid="stHorizontalBlock"] {
-    gap: 0.5rem !important;
+    gap: 1rem !important;
 }
 
 div[data-testid="stPlotlyChart"] {
@@ -27,7 +28,7 @@ div[data-testid="stPlotlyChart"] {
 }
 
 section[data-testid="stSidebar"] > div:first-child {
-    padding-top: 1rem !important;
+    padding-top: 2rem !important;
 }
 
 /* ===== ANULA ESTILO EM DIVS VAZIAS ===== */
@@ -59,7 +60,7 @@ h1, h2, h3, h4 {
     padding: 1.5rem 2rem;
     border-radius: 12px;
     color: white;
-    margin-bottom: 1rem;
+    margin-bottom: 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
