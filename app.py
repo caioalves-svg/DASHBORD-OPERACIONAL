@@ -28,48 +28,27 @@ taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_
 
 meta_total_sac = df_metas['Meta_SAC'].sum()
 meta_total_pend = df_metas['Meta_PEND'].sum()
-realizado_sac = 0
-realizado_pend = 0
 
 if 'Setor' in df_filtered.columns:
     realizado_sac = df_filtered[df_filtered['Setor'].str.contains('SAC', case=False, na=False)]['Eh_Novo_Episodio'].sum()
     realizado_pend = df_filtered[df_filtered['Setor'].str.contains('Pend', case=False, na=False)]['Eh_Novo_Episodio'].sum()
+else:
+    realizado_sac = realizado_pend = 0
 
 perc_sac = (realizado_sac / meta_total_sac * 100) if meta_total_sac > 0 else 0
 perc_pend = (realizado_pend / meta_total_pend * 100) if meta_total_pend > 0 else 0
 
-def get_cor(realizado, meta, tma_target, ativos):
-    if meta == 0:
-        return "off"
-    is_today = end_date == datetime.today().date()
-    if is_today:
-        agora = datetime.now()
-        horas_rest = max(0, 17.3 - (agora.hour + agora.minute / 60))
-        projecao = realizado + ((ativos * horas_rest * 60 * 0.70) / tma_target)
-        return "normal" if projecao >= meta else "inverse"
-    return "normal" if realizado >= meta else "inverse"
-
-qtd_sac = df_metas[df_metas['Meta_SAC'] > 0].shape[0]
-qtd_pend = df_metas[df_metas['Meta_PEND'] > 0].shape[0]
-cor_sac = get_cor(realizado_sac, meta_total_sac, 5.383, qtd_sac)
-cor_pend = get_cor(realizado_pend, meta_total_pend, 5.133, qtd_pend)
-
 # --- VISUALIZAÇÃO ---
 ui_components.render_header()
 
-# KPIs do Topo
 c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.metric("Total Registros", f"{total_bruto}")
-with c2:
-    st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
-with c3:
-    st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
+with c1: st.metric("Total Registros", f"{total_bruto}")
+with c2: st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
+with c3: st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
 with c4:
     media_meta = (perc_sac + perc_pend) / 2
     st.metric("Meta Global", f"{media_meta:.1f}%", "Média Setores")
 
-# --- GRÁFICOS (Layout Grid) ---
 st.markdown("<br>", unsafe_allow_html=True)
 
 col_main_1, col_main_2 = st.columns([2, 1])
