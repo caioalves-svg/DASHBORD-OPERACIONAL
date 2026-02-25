@@ -1,15 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-    --primary: #6366f1;       /* Indigo 500 */
-    --secondary: #10b981;     /* Emerald 500 */
-    --bg-page: #f3f4f6;       /* Gray 100 */
+    --primary: #6366f1;
+    --secondary: #10b981;
+    --bg-page: #f3f4f6;
     --bg-card: #ffffff;
     --text-main: #111827;
     --text-sub: #6b7280;
 }
 
-/* RESET E BASE */
+/* RESET GERAL */
 .stApp {
     background-color: var(--bg-page);
     font-family: 'Inter', sans-serif;
@@ -21,7 +21,7 @@ h1, h2, h3, h4, h5 {
     font-weight: 700 !important;
 }
 
-/* HEADER CUSTOMIZADO */
+/* HEADER */
 .custom-header {
     background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
     padding: 1.5rem 2rem;
@@ -33,7 +33,6 @@ h1, h2, h3, h4, h5 {
     justify-content: space-between;
     align-items: center;
 }
-
 .header-title { font-size: 1.8rem; font-weight: 700; }
 .header-subtitle { opacity: 0.9; font-size: 0.9rem; font-weight: 400; }
 
@@ -46,7 +45,6 @@ h1, h2, h3, h4, h5 {
     border: 1px solid rgba(229, 231, 235, 0.5);
     height: 100%;
 }
-
 .metric-label { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.5rem; }
 .metric-value { font-size: 2.2rem; font-weight: 800; color: var(--text-main); }
 .metric-delta { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-top: 8px; }
@@ -55,8 +53,8 @@ h1, h2, h3, h4, h5 {
 .delta-negative { background-color: #fef2f2; color: #dc2626; }
 .delta-neutral { background-color: #f3f4f6; color: #4b5563; }
 
-/* ESTILIZAÇÃO AUTOMÁTICA DE GRÁFICOS (SOLUÇÃO DO PROBLEMA) */
-/* Isso faz com que todo gráfico Plotly ganhe fundo branco e borda automaticamente */
+/* --- A MÁGICA VISUAL ESTÁ AQUI --- */
+/* Esta regra transforma qualquer gráfico em um cartão branco automaticamente */
 div[data-testid="stPlotlyChart"] {
     background-color: #ffffff;
     border-radius: 16px;
@@ -66,11 +64,6 @@ div[data-testid="stPlotlyChart"] {
     margin-bottom: 1rem;
 }
 
-/* SIDEBAR */
-section[data-testid="stSidebar"] {
-    background-color: #ffffff;
-    border-right: 1px solid #e5e7eb;
-}
-
-/* REMOVER PADDING PADRÃO */
+/* SIDEBAR E PADDING */
+section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e5e7eb; }
 .block-container { padding-top: 2rem; padding-bottom: 2rem; }
