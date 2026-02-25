@@ -3,6 +3,7 @@ from datetime import datetime
 from modules import data_loader, business_logic, ui_components
 
 st.set_page_config(page_title="Dashboard Operacional", page_icon="🚛", layout="wide", initial_sidebar_state="expanded")
+
 ui_components.load_css()
 
 with st.sidebar:
@@ -27,8 +28,9 @@ taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_
 
 meta_total_sac = df_metas['Meta_SAC'].sum()
 meta_total_pend = df_metas['Meta_PEND'].sum()
+realizado_sac = 0
+realizado_pend = 0
 
-realizado_sac = 0; realizado_pend = 0
 if 'Setor' in df_filtered.columns:
     realizado_sac = df_filtered[df_filtered['Setor'].str.contains('SAC', case=False, na=False)]['Eh_Novo_Episodio'].sum()
     realizado_pend = df_filtered[df_filtered['Setor'].str.contains('Pend', case=False, na=False)]['Eh_Novo_Episodio'].sum()
@@ -37,11 +39,12 @@ perc_sac = (realizado_sac / meta_total_sac * 100) if meta_total_sac > 0 else 0
 perc_pend = (realizado_pend / meta_total_pend * 100) if meta_total_pend > 0 else 0
 
 def get_cor(realizado, meta, tma_target, ativos):
-    if meta == 0: return "off"
+    if meta == 0:
+        return "off"
     is_today = end_date == datetime.today().date()
     if is_today:
         agora = datetime.now()
-        horas_rest = max(0, 17.3 - (agora.hour + agora.minute/60))
+        horas_rest = max(0, 17.3 - (agora.hour + agora.minute / 60))
         projecao = realizado + ((ativos * horas_rest * 60 * 0.70) / tma_target)
         return "normal" if projecao >= meta else "inverse"
     return "normal" if realizado >= meta else "inverse"
@@ -56,38 +59,32 @@ ui_components.render_header()
 
 # KPIs do Topo
 c1, c2, c3, c4 = st.columns(4)
-with c1: st.metric("Total Registros", f"{total_bruto}")
-with c2: st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
-with c3: st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
+with c1:
+    st.metric("Total Registros", f"{total_bruto}")
+with c2:
+    st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
+with c3:
+    st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
 with c4:
     media_meta = (perc_sac + perc_pend) / 2
     st.metric("Meta Global", f"{media_meta:.1f}%", "Média Setores")
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- GRÁFICOS (SEM CONTAINER/BORDA) ---
+# --- GRÁFICOS ---
 col_main_1, col_main_2 = st.columns([2, 1])
-
 with col_main_1:
     st.subheader("📊 Performance Individual")
     ui_components.render_main_bar_chart(df_filtered)
-
 with col_main_2:
     st.subheader("🎯 Metas")
     ui_components.render_gauges(perc_sac, perc_pend)
 
-st.markdown("---")
 st.subheader("⚡ Capacidade vs Realizado (TMA)")
 ui_components.render_capacity_scatter(df_filtered)
 
-st.markdown("---")
-
 col_ev1, col_ev2 = st.columns(2)
-
 with col_ev1:
     st.subheader("📈 Fluxo Horário")
     ui_components.render_evolution_chart(df_filtered)
-
 with col_ev2:
     st.subheader("🔥 Mapa de Calor")
     ui_components.render_heatmap_clean(df_filtered)
