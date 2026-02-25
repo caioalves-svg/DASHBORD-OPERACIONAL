@@ -25,6 +25,30 @@ header {
 div[data-testid="stAppViewBlockContainer"] {
     padding-top: 0.5rem !important;
 }
+
+/* Remove gap entre colunas e elementos */
+div[data-testid="stHorizontalBlock"] {
+    gap: 0.5rem !important;
+}
+
+/* Remove espaço acima dos subheaders */
+div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
+    gap: 0.25rem !important;
+}
+
+/* Remove padding interno dos elementos plotly */
+div[data-testid="stPlotlyChart"] > div {
+    padding: 0 !important;
+}
+
+/* Remove espaço extra na sidebar */
+section[data-testid="stSidebar"] > div:first-child {
+    padding-top: 1rem !important;
+}
+
+section[data-testid="stSidebar"] hr {
+    margin: 0.5rem 0 !important;
+}
 /* ============================================= */
 
 .stApp {
