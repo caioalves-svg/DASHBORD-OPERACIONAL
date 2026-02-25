@@ -3,7 +3,6 @@ from datetime import datetime
 from modules import data_loader, business_logic, ui_components
 
 st.set_page_config(page_title="Dashboard Operacional", page_icon="🚛", layout="wide", initial_sidebar_state="expanded")
-
 ui_components.load_css()
 
 with st.sidebar:
@@ -55,7 +54,11 @@ col_main_1, col_main_2 = st.columns([2, 1])
 with col_main_1:
     ui_components.render_main_bar_chart(df_filtered)
 with col_main_2:
-    ui_components.render_gauges(perc_sac, perc_pend)
+    ui_components.render_gauges(
+        perc_sac, perc_pend,
+        realizado_sac=realizado_sac, meta_sac=meta_total_sac,
+        realizado_pend=realizado_pend, meta_pend=meta_total_pend
+    )
 
 ui_components.render_capacity_scatter(df_filtered)
 
