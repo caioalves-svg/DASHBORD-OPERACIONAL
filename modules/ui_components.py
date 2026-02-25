@@ -11,12 +11,15 @@ COLOR_PALETTE = {
     'accent': '#F59E0B', # Amber
     'danger': '#EF4444', # Red
     'neutral': '#6B7280', # Gray
-    'charts': ['#4F46E5', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6']
 }
 
 def load_css():
-    with open("modules/styles.css") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    """Carrega o arquivo CSS de estilos."""
+    try:
+        with open("modules/styles.css") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning("Arquivo styles.css não encontrado. O visual será o padrão.")
 
 # --- COMPONENTE DE CARD PERSONALIZADO (HTML) ---
 def kpi_card(title, value, delta=None, delta_color="neutral", icon="📊"):
@@ -50,7 +53,13 @@ def render_sidebar_filters(df_raw):
     st.sidebar.markdown("### 🎛️ Filtros Operacionais")
     
     min_date = df_raw['Data'].min().date()
-    max_date = max(df_raw['Data'].max().date(), datetime.now().date())
+    # Garante que não quebre se a planilha estiver vazia ou com datas estranhas
+    try:
+        max_val_data = df_raw['Data'].max().date()
+    except:
+        max_val_data = datetime.now().date()
+        
+    max_date = max(max_val_data, datetime.now().date())
     today = datetime.now().date()
 
     # Lógica de dia atual
@@ -58,16 +67,19 @@ def render_sidebar_filters(df_raw):
 
     date_range = st.sidebar.date_input("Período de Análise", value=default_val, min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
     
-    if len(date_range) == 2:
-        start, end = date_range
-    elif len(date_range) == 1:
-        start, end = date_range[0], date_range[0]
+    if isinstance(date_range, (list, tuple)):
+        if len(date_range) == 2:
+            start, end = date_range
+        elif len(date_range) == 1:
+            start, end = date_range[0], date_range[0]
+        else:
+            start, end = today, today
     else:
-        start, end = today, today
+        start, end = date_range, date_range
 
     st.sidebar.markdown("---")
     
-    # Filtros com chaves únicas para evitar conflito
+    # Filtros com chaves únicas
     setores = st.sidebar.multiselect("Setor", options=sorted(df_raw['Setor'].unique())) if 'Setor' in df_raw.columns else []
     colaboradores = st.sidebar.multiselect("Colaborador", options=sorted(df_raw['Colaborador'].unique()))
     portais = st.sidebar.multiselect("Portal", options=sorted(df_raw['Portal'].unique()))
@@ -101,6 +113,10 @@ def render_productivity_charts(df):
     st.subheader("1. Volume de Atendimento")
     st.caption("Comparativo entre Total de Registros (Bruto) e Atendimentos Reais (Líquido)")
     
+    if df.empty:
+        st.info("Sem dados para exibir no período selecionado.")
+        return
+
     df_vol = df.groupby('Colaborador').agg(
         Bruto=('Data', 'count'),
         Liquido=('Eh_Novo_Episodio', 'sum'),
@@ -110,12 +126,13 @@ def render_productivity_charts(df):
     df_melt = df_vol.melt(id_vars=['Colaborador', 'Erros_CRM'], value_vars=['Bruto', 'Liquido'], var_name='Métrica', value_name='Volume')
     max_vol = df_melt['Volume'].max()
     
+    if pd.isna(max_vol) or max_vol == 0: max_vol = 10
+
     fig = px.bar(df_melt, y='Colaborador', x='Volume', color='Métrica', barmode='group', orientation='h',
-                 color_discrete_map={'Bruto': '#FCD34D', 'Liquido': COLOR_PALETTE['primary']}, # Amarelo suave e Indigo
+                 color_discrete_map={'Bruto': '#FCD34D', 'Liquido': COLOR_PALETTE['primary']}, 
                  text='Volume',
                  hover_data={'Erros_CRM': True, 'Métrica': True, 'Volume': True, 'Colaborador': False})
     
-    # Estilização Clean do Plotly
     fig.update_traces(textposition='outside', marker_line_width=0, opacity=0.9)
     fig.update_layout(
         height=450, 
@@ -133,7 +150,6 @@ def render_capacity_chart(df, df_metas, perc_sac, realized_sac, meta_sac, cor_sa
     # Cards de Meta Estilizados
     mc1, mc2 = st.columns(2)
     with mc1: 
-        # Traduz 'normal'/'inverse' para cores do kpi_card
         d_color = "normal" if cor_sac == "normal" else "inverse"
         kpi_card("Meta SAC (Projeção)", f"{perc_sac:.1f}%", delta=f"{realized_sac}/{meta_sac} Realizados", delta_color=d_color, icon="🎧")
     with mc2:
@@ -143,6 +159,10 @@ def render_capacity_chart(df, df_metas, perc_sac, realized_sac, meta_sac, cor_sa
     st.markdown("<br>", unsafe_allow_html=True)
     st.subheader("2. Projeção Individual (Meta vs Real)")
     
+    if df.empty:
+        st.info("Sem dados para calcular capacidade.")
+        return
+
     df_tma = df.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     df_tma.columns = ['Colaborador', 'TMA_Medio', 'Amostra']
     df_tma = df_tma[df_tma['Amostra'] > 5] 
@@ -162,8 +182,7 @@ def render_capacity_chart(df, df_metas, perc_sac, realized_sac, meta_sac, cor_sa
         name='Capacidade Projetada', 
         marker_color='#10B981', # Emerald Green
         text=df_tma['Capacidade_Diaria'], 
-        textposition='outside',
-        marker_cornerradius=5 # Bordas arredondadas na barra (Novo no Plotly)
+        textposition='outside'
     ))
     
     # Linha elegante
@@ -172,8 +191,8 @@ def render_capacity_chart(df, df_metas, perc_sac, realized_sac, meta_sac, cor_sa
         y=df_tma['TMA_Medio'], 
         mode='lines+markers+text', 
         name='TMA Atual (min)', 
-        marker=dict(color='#EF4444', size=10, line=dict(width=2, color='white')), # Bolinha vermelha com borda branca
-        line=dict(color='#EF4444', width=3, shape='spline'), # Linha curva (spline) fica mais bonito
+        marker=dict(color='#EF4444', size=10, line=dict(width=2, color='white')),
+        line=dict(color='#EF4444', width=3, shape='spline'),
         text=df_tma['TMA_Medio'].apply(lambda x: f"{x:.1f}'"), 
         textposition='top center', 
         yaxis='y2'
@@ -198,10 +217,12 @@ def render_heatmap(df):
     
     if not df_heat.empty:
         df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
+        
+        # CORREÇÃO AQUI: Mudamos 'ygmnbu' para 'Viridis' (que é seguro)
         fig_heat = px.density_heatmap(
             df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados', 
             category_orders={"Dia_Semana": dias_uteis}, 
-            color_continuous_scale='ygmnbu', # Gradiente profissional (Yellow Green Blue)
+            color_continuous_scale='Viridis', 
             text_auto=True
         )
         fig_heat.update_layout(
@@ -227,7 +248,7 @@ def render_reincidencia_charts(df_criticos):
                 x='Volume', y='Motivo', orientation='h', text='Porcentagem', 
                 color='Volume', color_continuous_scale='Blues'
             )
-            fig.update_traces(textposition='outside', marker_cornerradius=3)
+            fig.update_traces(textposition='outside')
             fig.update_layout(
                 height=350, 
                 coloraxis_showscale=False, 
@@ -238,3 +259,26 @@ def render_reincidencia_charts(df_criticos):
             st.plotly_chart(fig, use_container_width=True)
     with c2:
         st.info("💡 **Dica:** Use a tabela abaixo para ver o histórico cronológico de cada pedido crítico.")
+
+def plot_matrix(df_input, col_x, col_y, title):
+    """Função para plotar as matrizes de Causa Raiz."""
+    df_clean = df_input[(df_input[col_x] != 'Não Informado') & (df_input[col_y] != 'Não Informado')]
+    
+    if df_clean.empty:
+        st.warning(f"Sem dados suficientes para {title}")
+        return
+
+    matrix = pd.crosstab(df_clean[col_y], df_clean[col_x])
+    matrix = matrix.loc[(matrix!=0).any(axis=1), (matrix!=0).any(axis=0)]
+    
+    matrix['Total_Row'] = matrix.sum(axis=1)
+    matrix = matrix.sort_values('Total_Row', ascending=False)
+    matrix = matrix.drop(columns='Total_Row')
+    
+    col_sums = matrix.sum().sort_values(ascending=False).index
+    matrix = matrix[col_sums]
+
+    if not matrix.empty:
+        fig = px.imshow(matrix, text_auto=True, aspect="auto", color_continuous_scale='Reds', title=title)
+        fig.update_layout(height=500)
+        st.plotly_chart(fig, use_container_width=True)
