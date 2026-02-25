@@ -56,43 +56,70 @@ def render_sidebar_filters(df_raw):
     return df, end
 
 def render_gauges(perc_sac, perc_pend, realizado_sac=0, meta_sac=0, realizado_pend=0, meta_pend=0):
-    def create_gauge(value, title, color):
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=min(value, 100),
-            title={'text': title, 'font': {'size': 15, 'color': '#6b7280'}},
-            number={'suffix': "%", 'font': {'size': 24, 'color': '#1f2937'}},
-            gauge={
-                'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "rgba(0,0,0,0)"},
-                'bar': {'color': color},
-                'bgcolor': "rgba(0,0,0,0)",
-                'borderwidth': 0,
-                'steps': [{'range': [0, 100], 'color': "#f3f4f6"}]
-            }
-        ))
-        fig.update_layout(height=180, margin=dict(l=30, r=30, t=50, b=10), paper_bgcolor='rgba(0,0,0,0)')
-        return fig
-
-    def info_meta(realizado, meta, atingiu):
+    def meta_card(titulo, icone, perc, realizado, meta, cor_ativa, cor_bg, cor_text):
+        atingiu = perc >= 100
+        perc_bar = min(perc, 100)
         falta = max(0, int(meta) - int(realizado))
-        cor = "#10b981" if atingiu else "#ef4444"
-        icone = "✅" if atingiu else "🔴"
-        if atingiu:
-            texto = f"Feito: <b>{int(realizado)}</b> / Meta: <b>{int(meta)}</b> {icone}"
-        else:
-            texto = f"Feito: <b>{int(realizado)}</b> / Meta: <b>{int(meta)}</b> — Faltam: <b>{falta}</b> {icone}"
-        return f"<p style='text-align:center; font-size:13px; color:{cor}; margin-top:-15px; margin-bottom:5px;'>{texto}</p>"
+        status_cor = "#10b981" if atingiu else cor_ativa
+        status_bg  = "#f0fdf4" if atingiu else cor_bg
+        status_txt = f"✅ Meta atingida!" if atingiu else f"Faltam <b>{falta}</b> atendimentos"
+        status_icon = "🏆" if atingiu else "📈"
 
-    st.markdown("<h4 style='margin-bottom:-20px; color:#1f2937;'>🎯 Metas</h4>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        color_sac = THEME['secondary'] if perc_sac >= 100 else THEME['primary']
-        st.plotly_chart(create_gauge(perc_sac, "SAC", color_sac), use_container_width=True)
-        st.markdown(info_meta(realizado_sac, meta_sac, perc_sac >= 100), unsafe_allow_html=True)
-    with c2:
-        color_pend = THEME['secondary'] if perc_pend >= 100 else "#f59e0b"
-        st.plotly_chart(create_gauge(perc_pend, "Pendência", color_pend), use_container_width=True)
-        st.markdown(info_meta(realizado_pend, meta_pend, perc_pend >= 100), unsafe_allow_html=True)
+        return f"""
+        <div style="
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-top: 4px solid {cor_ativa};
+            margin-bottom: 12px;
+        ">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:20px;">{icone}</span>
+                    <span style="font-size:15px; font-weight:700; color:#1f2937;">{titulo}</span>
+                </div>
+                <span style="font-size:26px; font-weight:800; color:{cor_ativa};">{perc:.1f}%</span>
+            </div>
+
+            <div style="background:#f3f4f6; border-radius:999px; height:10px; margin-bottom:10px; overflow:hidden;">
+                <div style="
+                    width:{perc_bar}%;
+                    height:100%;
+                    border-radius:999px;
+                    background: linear-gradient(90deg, {cor_ativa}99, {cor_ativa});
+                    transition: width 0.6s ease;
+                "></div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#6b7280; margin-bottom:12px;">
+                <span>0</span>
+                <span style="font-weight:600; color:#374151;">Feito: <b style="color:{cor_ativa}">{int(realizado)}</b> / {int(meta)}</span>
+                <span>Meta</span>
+            </div>
+
+            <div style="
+                background: {status_bg};
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 13px;
+                color: {status_cor};
+                text-align: center;
+            ">{status_icon} {status_txt}</div>
+        </div>
+        """
+
+    st.markdown("<h4 style='margin-bottom:12px; color:#1f2937;'>🎯 Metas</h4>", unsafe_allow_html=True)
+
+    st.markdown(meta_card(
+        "SAC", "📞", perc_sac, realizado_sac, meta_sac,
+        cor_ativa="#6366f1", cor_bg="#eef2ff", cor_text="#4338ca"
+    ), unsafe_allow_html=True)
+
+    st.markdown(meta_card(
+        "Pendência", "⏳", perc_pend, realizado_pend, meta_pend,
+        cor_ativa="#f59e0b", cor_bg="#fffbeb", cor_text="#92400e"
+    ), unsafe_allow_html=True)
 
 def render_main_bar_chart(df):
     if df.empty: return st.info("Sem dados.")
