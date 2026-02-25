@@ -1,15 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-    --primary: #6366f1;
-    --secondary: #10b981;
-    --bg-page: #f3f4f6;
+    --primary: #6366f1;       /* Indigo 500 */
+    --secondary: #10b981;     /* Emerald 500 */
+    --bg-page: #f3f4f6;       /* Gray 100 */
     --bg-card: #ffffff;
     --text-main: #111827;
     --text-sub: #6b7280;
 }
 
-/* RESET GERAL */
+/* RESET E BASE */
 .stApp {
     background-color: var(--bg-page);
     font-family: 'Inter', sans-serif;
@@ -21,7 +21,7 @@ h1, h2, h3, h4, h5 {
     font-weight: 700 !important;
 }
 
-/* HEADER */
+/* HEADER CUSTOMIZADO */
 .custom-header {
     background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
     padding: 1.5rem 2rem;
@@ -33,10 +33,11 @@ h1, h2, h3, h4, h5 {
     justify-content: space-between;
     align-items: center;
 }
+
 .header-title { font-size: 1.8rem; font-weight: 700; }
 .header-subtitle { opacity: 0.9; font-size: 0.9rem; font-weight: 400; }
 
-/* CARDS DE KPI */
+/* CARDS DE KPI (Esses funcionam bem) */
 .metric-container {
     background-color: var(--bg-card);
     border-radius: 16px;
@@ -45,6 +46,7 @@ h1, h2, h3, h4, h5 {
     border: 1px solid rgba(229, 231, 235, 0.5);
     height: 100%;
 }
+
 .metric-label { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.5rem; }
 .metric-value { font-size: 2.2rem; font-weight: 800; color: var(--text-main); }
 .metric-delta { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-top: 8px; }
@@ -53,17 +55,14 @@ h1, h2, h3, h4, h5 {
 .delta-negative { background-color: #fef2f2; color: #dc2626; }
 .delta-neutral { background-color: #f3f4f6; color: #4b5563; }
 
-/* --- A MÁGICA VISUAL ESTÁ AQUI --- */
-/* Esta regra transforma qualquer gráfico em um cartão branco automaticamente */
-div[data-testid="stPlotlyChart"] {
+/* REMOVI COMPLETAMENTE A REGRA div[data-testid="stPlotlyChart"] */
+/* Isso garante que nenhuma caixa branca vazia apareça */
+
+/* SIDEBAR */
+section[data-testid="stSidebar"] {
     background-color: #ffffff;
-    border-radius: 16px;
-    padding: 15px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(229, 231, 235, 0.5);
-    margin-bottom: 1rem;
+    border-right: 1px solid #e5e7eb;
 }
 
-/* SIDEBAR E PADDING */
-section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e5e7eb; }
+/* REMOVER PADDING PADRÃO */
 .block-container { padding-top: 2rem; padding-bottom: 2rem; }
