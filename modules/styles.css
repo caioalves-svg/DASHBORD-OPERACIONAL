@@ -1,25 +1,25 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* VARIÁVEIS LIMPAS */
 :root {
     --primary: #6366f1;
     --bg-page: #f3f4f6;
     --text-main: #111827;
 }
 
-/* RESET ESTRUTURAL */
+/* Fundo da Página */
 .stApp {
     background-color: var(--bg-page);
     font-family: 'Inter', sans-serif;
 }
 
+/* Títulos */
 h1, h2, h3, h4 {
     color: var(--text-main) !important;
     font-family: 'Inter', sans-serif !important;
     font-weight: 700 !important;
 }
 
-/* HEADER COLORIDO (MANTIDO) */
+/* Header (Mantido pois funciona) */
 .custom-header {
     background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
     padding: 1.5rem 2rem;
@@ -29,15 +29,16 @@ h1, h2, h3, h4 {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 .header-title { font-size: 1.8rem; font-weight: 700; }
 
-/* KPI CARDS (MANTIDOS - ELES FUNCIONAM BEM) */
+/* KPI Cards (Topo - Mantidos pois são HTML puro) */
 .metric-container {
     background-color: white;
     border-radius: 12px;
     padding: 1.2rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     border: 1px solid #e5e7eb;
 }
 .metric-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #6b7280; }
@@ -48,9 +49,8 @@ h1, h2, h3, h4 {
 .delta-negative { background-color: #fef2f2; color: #dc2626; }
 .delta-neutral { background-color: #f3f4f6; color: #4b5563; }
 
-/* SIDEBAR E ESPAÇAMENTOS */
+/* Sidebar */
 section[data-testid="stSidebar"] { background-color: white; border-right: 1px solid #e5e7eb; }
 .block-container { padding-top: 2rem; padding-bottom: 3rem; }
 
-/* --- AQUI ESTAVA O PROBLEMA: REMOVIDO --- */
-/* Não existe mais nenhuma regra para stPlotlyChart ou divs genéricas aqui */
+/* GARANTIA: Removemos qualquer estilo forçado em gráficos */
