@@ -4,10 +4,10 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
 
-# CONFIGURAÇÃO DE CORES
+# CORES
 THEME = {
     'primary': '#6366f1',
-    'bg_chart': 'rgba(0,0,0,0)', # Fundo transparente
+    'bg_chart': 'rgba(0,0,0,0)',
     'grid': '#e5e7eb'
 }
 
@@ -15,23 +15,19 @@ def load_css():
     try:
         with open("modules/styles.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    except FileNotFoundError:
-        st.warning("CSS não encontrado.")
+    except: pass
 
 def render_header():
     st.markdown("""
         <div class="custom-header">
-            <div>
-                <div class="header-title">Monitoramento Operacional</div>
-                <div class="header-subtitle">Performance em Tempo Real • Logística & SAC</div>
-            </div>
+            <div class="header-title">Monitoramento Operacional</div>
             <div style="font-size: 2rem;">🚛</div>
         </div>
     """, unsafe_allow_html=True)
 
 def kpi_card_new(title, value, delta=None, delta_type="neutral", icon="📊"):
     delta_html = f"<div class='metric-delta delta-{delta_type}'>{delta}</div>" if delta else ""
-    html = f"""
+    st.markdown(f"""
     <div class="metric-container">
         <div style="display:flex; justify-content:space-between;">
             <div class="metric-label">{title}</div>
@@ -40,11 +36,10 @@ def kpi_card_new(title, value, delta=None, delta_type="neutral", icon="📊"):
         <div class="metric-value">{value}</div>
         {delta_html}
     </div>
-    """
-    st.markdown(html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 def render_sidebar_filters(df_raw):
-    st.sidebar.markdown("### 🎛️ Controles")
+    st.sidebar.markdown("### 🎛️ Filtros")
     min_date = df_raw['Data'].min().date()
     try: max_val = df_raw['Data'].max().date()
     except: max_val = datetime.now().date()
@@ -69,7 +64,7 @@ def render_sidebar_filters(df_raw):
     if colaboradores: df = df[df['Colaborador'].isin(colaboradores)]
     return df, end
 
-# --- GRÁFICOS (LIMPOS E TRANSPARENTES) ---
+# --- GRÁFICOS PUROS (SEM WRAPPERS) ---
 
 def render_gauges(perc_sac, perc_pend):
     def create_gauge(value, title, color):
@@ -78,11 +73,11 @@ def render_gauges(perc_sac, perc_pend):
             value = min(value, 100),
             title = {'text': title, 'font': {'size': 14, 'color': '#6b7280'}},
             number = {'suffix': "%", 'font': {'size': 26, 'color': '#1f2937'}},
-            gauge = {'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "rgba(0,0,0,0)"},
+            gauge = {'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "white"},
                      'bar': {'color': color},
-                     'bgcolor': "rgba(0,0,0,0)",
+                     'bgcolor': "white",
                      'borderwidth': 0,
-                     'steps': [{'range': [0, 100], 'color': "#e5e7eb"}]} # Cinza claro para o fundo do gauge
+                     'steps': [{'range': [0, 100], 'color': "#e5e7eb"}]}
         ))
         fig.update_layout(height=160, margin=dict(l=20, r=20, t=30, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         return fig
@@ -97,7 +92,7 @@ def render_gauges(perc_sac, perc_pend):
 
 def render_main_bar_chart(df):
     if df.empty: 
-        st.info("Sem dados para o período.")
+        st.info("Sem dados.")
         return
     
     df_vol = df.groupby('Colaborador').agg(Bruto=('Data', 'count'), Liquido=('Eh_Novo_Episodio', 'sum')).reset_index().sort_values('Liquido', ascending=True)
@@ -111,10 +106,7 @@ def render_main_bar_chart(df):
     st.plotly_chart(fig, use_container_width=True)
 
 def render_capacity_scatter(df):
-    if df.empty:
-        st.info("Sem dados suficientes.")
-        return
-    
+    if df.empty: return
     df_tma = df.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     df_tma.columns = ['Colaborador', 'mean', 'Amostra']
     df_tma = df_tma[df_tma['Amostra'] > 5]
@@ -150,24 +142,3 @@ def render_heatmap_clean(df):
     fig = px.density_heatmap(df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados', color_continuous_scale='Blues', text_auto=True)
     fig.update_layout(height=300, coloraxis_showscale=False, xaxis=dict(title=None), yaxis=dict(title=None), margin=dict(l=0, r=0, t=0, b=0), plot_bgcolor=THEME['bg_chart'], paper_bgcolor=THEME['bg_chart'])
     st.plotly_chart(fig, use_container_width=True)
-
-def plot_matrix(df_input, col_x, col_y, title):
-    df_clean = df_input[(df_input[col_x] != 'Não Informado') & (df_input[col_y] != 'Não Informado')]
-    if df_clean.empty: return
-    matrix = pd.crosstab(df_clean[col_y], df_clean[col_x])
-    matrix = matrix.loc[(matrix!=0).any(axis=1), (matrix!=0).any(axis=0)]
-    matrix['Total_Row'] = matrix.sum(axis=1)
-    matrix = matrix.sort_values('Total_Row', ascending=False).drop(columns='Total_Row')
-    matrix = matrix[matrix.sum().sort_values(ascending=False).index]
-    fig = px.imshow(matrix, text_auto=True, aspect="auto", color_continuous_scale='Reds', title=title)
-    st.plotly_chart(fig, use_container_width=True)
-
-def render_reincidencia_charts(df_criticos):
-    c1, c2 = st.columns([2,1])
-    with c1:
-        all_motivos = df_criticos.explode('Motivos_Unicos')
-        if not all_motivos.empty:
-            counts = all_motivos['Motivos_Unicos'].value_counts().reset_index()
-            counts.columns = ['Motivo', 'Volume']
-            fig = px.bar(counts.head(8).sort_values('Volume', ascending=True), x='Volume', y='Motivo', orientation='h', color='Volume')
-            st.plotly_chart(fig, use_container_width=True)
