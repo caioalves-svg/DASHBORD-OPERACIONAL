@@ -85,10 +85,8 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # 4. Bloco Secundário: Capacidade (Largo)
 st.markdown("### ⚡ Capacidade vs Realizado (TMA)")
-with st.container():
-    st.markdown("<div style='background:white; padding:15px; border-radius:12px; border:1px solid #e5e7eb;'>", unsafe_allow_html=True)
-    ui_components.render_capacity_scatter(df_filtered)
-    st.markdown("</div>", unsafe_allow_html=True)
+# O container foi movido para dentro da função
+ui_components.render_capacity_scatter(df_filtered)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -96,13 +94,9 @@ st.markdown("<br>", unsafe_allow_html=True)
 col_ev1, col_ev2 = st.columns(2)
 
 with col_ev1:
-    # Gráfico de Evolução (Novo!)
-    st.markdown("<div style='background:white; padding:20px; border-radius:12px; border:1px solid #e5e7eb; height:100%;'>", unsafe_allow_html=True)
+    # O container foi movido para dentro da função
     ui_components.render_evolution_chart(df_filtered)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 with col_ev2:
-    # Heatmap
-    st.markdown("<div style='background:white; padding:20px; border-radius:12px; border:1px solid #e5e7eb; height:100%;'>", unsafe_allow_html=True)
+    # O container foi movido para dentro da função
     ui_components.render_heatmap_clean(df_filtered)
-    st.markdown("</div>", unsafe_allow_html=True)
