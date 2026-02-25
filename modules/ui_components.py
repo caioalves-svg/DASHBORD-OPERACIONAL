@@ -4,12 +4,8 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
 
-# TEMA VISUAL DOS GRÁFICOS
-THEME = {
-    'primary': '#6366f1',
-    'bg_chart': 'rgba(0,0,0,0)', # Transparente para não criar caixas
-    'grid': '#e5e7eb'
-}
+# TEMA
+THEME = {'primary': '#6366f1', 'bg_chart': 'rgba(0,0,0,0)', 'grid': '#e5e7eb'}
 
 def load_css():
     try:
@@ -23,19 +19,6 @@ def render_header():
             <div class="header-title">Monitoramento Operacional</div>
             <div style="font-size: 2rem;">🚛</div>
         </div>
-    """, unsafe_allow_html=True)
-
-def kpi_card_new(title, value, delta=None, delta_type="neutral", icon="📊"):
-    delta_html = f"<div class='metric-delta delta-{delta_type}'>{delta}</div>" if delta else ""
-    st.markdown(f"""
-    <div class="metric-container">
-        <div style="display:flex; justify-content:space-between;">
-            <div class="metric-label">{title}</div>
-            <div style="opacity:0.6;">{icon}</div>
-        </div>
-        <div class="metric-value">{value}</div>
-        {delta_html}
-    </div>
     """, unsafe_allow_html=True)
 
 def render_sidebar_filters(df_raw):
@@ -64,7 +47,7 @@ def render_sidebar_filters(df_raw):
     if colaboradores: df = df[df['Colaborador'].isin(colaboradores)]
     return df, end
 
-# --- GRÁFICOS PUROS (SEM HTML WRAPPERS) ---
+# --- GRÁFICOS ---
 
 def render_gauges(perc_sac, perc_pend):
     def create_gauge(value, title, color):
