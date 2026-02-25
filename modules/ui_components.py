@@ -38,9 +38,6 @@ def render_sidebar_filters(df_raw):
     else:
         start, end = date_range, date_range
 
-    # REMOVIDO: st.sidebar.markdown("---") <- causava espaço extra na sidebar
-    st.sidebar.markdown("<div style='margin: 0.3rem 0'></div>", unsafe_allow_html=True)
-
     setores = st.sidebar.multiselect("Setor", options=sorted(df_raw['Setor'].unique())) if 'Setor' in df_raw.columns else []
     colaboradores = st.sidebar.multiselect("Colaborador", options=sorted(df_raw['Colaborador'].unique()))
     
@@ -113,10 +110,12 @@ def render_capacity_scatter(df):
 def render_evolution_chart(df):
     if df.empty: return
     df_line = df.groupby('Hora_Cheia').size().reset_index(name='Volume').sort_values('Hora_Cheia')
-    fig = px.area(df_line, x='Hora_Cheia', y='Volume', markers=True)
+    fig = px.area(df_line, x='Hora_Cheia', y='Volume', markers=True,
+                  title='📈 Fluxo Horário')
     fig.update_traces(line=dict(color='#8b5cf6', shape='spline'), fillcolor='rgba(139, 92, 246, 0.1)')
-    fig.update_layout(height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor=THEME['grid']), 
-                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=0, b=0))
+    fig.update_layout(height=280, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor=THEME['grid']),
+                      title=dict(font=dict(size=16, color='#1f2937'), x=0),
+                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=40, b=0))
     st.plotly_chart(fig, use_container_width=True)
 
 def render_heatmap_clean(df):
@@ -125,7 +124,10 @@ def render_heatmap_clean(df):
     if df_heat.empty: return
     
     df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
-    fig = px.density_heatmap(df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados', color_continuous_scale='Blues', text_auto=True)
-    fig.update_layout(height=300, coloraxis_showscale=False, xaxis=dict(title=None), yaxis=dict(title=None), 
-                      margin=dict(l=0, r=0, t=0, b=0), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+    fig = px.density_heatmap(df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados',
+                             color_continuous_scale='Blues', text_auto=True,
+                             title='🔥 Mapa de Calor Semanal')
+    fig.update_layout(height=320, coloraxis_showscale=False, xaxis=dict(title=None), yaxis=dict(title=None),
+                      title=dict(font=dict(size=16, color='#1f2937'), x=0),
+                      margin=dict(l=0, r=0, t=40, b=0), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
     st.plotly_chart(fig, use_container_width=True)
