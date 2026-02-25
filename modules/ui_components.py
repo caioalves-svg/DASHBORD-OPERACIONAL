@@ -161,7 +161,7 @@ def render_capacity_scatter(df):
     """Gráfico de Capacidade estilo 'Lollipop'"""
     if df.empty: return
     
-    # CORREÇÃO AQUI: Renomear as colunas ANTES de filtrar
+    # Renomear as colunas ANTES de filtrar
     df_tma = df.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     
     # Renomeia para garantir que 'Amostra' exista
@@ -218,15 +218,18 @@ def render_evolution_chart(df):
     
     df_line = df.groupby('Hora_Cheia').size().reset_index(name='Volume')
     
+    # Ordenar por hora para o gráfico não ficar bagunçado
+    df_line = df_line.sort_values('Hora_Cheia')
+    
     fig = px.area(
         df_line, x='Hora_Cheia', y='Volume',
-        line_shape='spline', # Curva suave
         markers=True
     )
     
+    # CORREÇÃO AQUI: fillcolor (sem underscore) e line=dict(color=...)
     fig.update_traces(
-        line_color='#8b5cf6', # Roxo
-        fill_color='rgba(139, 92, 246, 0.1)' # Preenchimento transparente
+        line=dict(color='#8b5cf6', shape='spline'), # Roxo, curva suave
+        fillcolor='rgba(139, 92, 246, 0.1)' # Preenchimento transparente
     )
     
     fig.update_layout(
@@ -264,3 +267,53 @@ def render_heatmap_clean(df):
         paper_bgcolor=THEME['bg_chart']
     )
     st.plotly_chart(fig, use_container_width=True)
+
+def plot_matrix(df_input, col_x, col_y, title):
+    """Função para plotar as matrizes de Causa Raiz."""
+    df_clean = df_input[(df_input[col_x] != 'Não Informado') & (df_input[col_y] != 'Não Informado')]
+    
+    if df_clean.empty:
+        st.warning(f"Sem dados suficientes para {title}")
+        return
+
+    matrix = pd.crosstab(df_clean[col_y], df_clean[col_x])
+    matrix = matrix.loc[(matrix!=0).any(axis=1), (matrix!=0).any(axis=0)]
+    
+    matrix['Total_Row'] = matrix.sum(axis=1)
+    matrix = matrix.sort_values('Total_Row', ascending=False)
+    matrix = matrix.drop(columns='Total_Row')
+    
+    col_sums = matrix.sum().sort_values(ascending=False).index
+    matrix = matrix[col_sums]
+
+    if not matrix.empty:
+        fig = px.imshow(matrix, text_auto=True, aspect="auto", color_continuous_scale='Reds', title=title)
+        fig.update_layout(height=500)
+        st.plotly_chart(fig, use_container_width=True)
+
+def render_reincidencia_charts(df_criticos):
+    c1, c2 = st.columns([2,1])
+    with c1:
+        st.markdown("**Top Motivos de Retorno**")
+        all_motivos = df_criticos.explode('Motivos_Unicos')
+        if not all_motivos.empty:
+            counts = all_motivos['Motivos_Unicos'].value_counts().reset_index()
+            counts.columns = ['Motivo', 'Volume']
+            counts['Porcentagem'] = (counts['Volume'] / counts['Volume'].sum() * 100).map('{:,.1f}%'.format)
+            
+            fig = px.bar(
+                counts.head(8).sort_values('Volume', ascending=True),
+                x='Volume', y='Motivo', orientation='h', text='Porcentagem', 
+                color='Volume', color_continuous_scale='Blues'
+            )
+            fig.update_traces(textposition='outside', marker_cornerradius=3)
+            fig.update_layout(
+                height=350, 
+                coloraxis_showscale=False, 
+                yaxis_title=None,
+                plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(showgrid=True, gridcolor='#F3F4F6')
+            )
+            st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        st.info("💡 **Dica:** Use a tabela abaixo para ver o histórico cronológico de cada pedido crítico.")
