@@ -8,10 +8,50 @@ from datetime import datetime
 THEME = {'primary': '#6366f1', 'grid': '#e5e7eb'}
 
 def load_css():
+    # Remove espaços em branco do Streamlit
+    st.markdown("""
+        <style>
+            /* Remove padding do topo da página */
+            .block-container {
+                padding-top: 0.5rem !important;
+                padding-bottom: 0rem !important;
+            }
+
+            /* Remove header branco do Streamlit */
+            header[data-testid="stHeader"] {
+                height: 0 !important;
+                min-height: 0 !important;
+                visibility: hidden !important;
+            }
+
+            /* Remove espaço acima dos gráficos Plotly */
+            div[data-testid="stPlotlyChart"] {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+
+            /* Remove gaps entre blocos verticais */
+            div[data-testid="stVerticalBlock"] > div:has(iframe) {
+                padding: 0 !important;
+            }
+
+            /* Sidebar sem espaço extra no topo */
+            section[data-testid="stSidebar"] > div:first-child {
+                padding-top: 1rem !important;
+            }
+
+            /* Remove espaço entre elementos gerais */
+            div[data-testid="stVerticalBlock"] {
+                gap: 0rem !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     try:
         with open("modules/styles.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    except: pass
+    except:
+        pass
 
 def render_header():
     st.markdown("""
@@ -99,11 +139,12 @@ def render_capacity_scatter(df):
     df_tma = df_tma.sort_values('Capacidade', ascending=False)
     
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=df_tma['Colaborador'], y=df_tma['Capacidade'], name='Capacidade', marker_color='#a7f3d0', marker_line_color='#10b981', marker_line_width=1, text=df_tma['Capacidade'], textposition='outside'))
-    fig.add_trace(go.Scatter(x=df_tma['Colaborador'], y=df_tma['mean'], mode='markers+lines', name='TMA Real', yaxis='y2', line=dict(color='#ef4444', width=3), marker=dict(size=8, color='white', line=dict(width=2, color='#ef4444'))))
+    fig.add_trace(go.Bar(x=df_tma['Colaborador'], y=df_tma['Capacidade'], name='Capacidade Projetada', marker_color='#a7f3d0', marker_line_color='#10b981', marker_line_width=1, text=df_tma['Capacidade'], textposition='outside'))
+    fig.add_trace(go.Scatter(x=df_tma['Colaborador'], y=df_tma['mean'], mode='markers+lines', name='TMA Real (min)', yaxis='y2', line=dict(color='#ef4444', width=3), marker=dict(size=8, color='white', line=dict(width=2, color='#ef4444'))))
     
-    fig.update_layout(height=350, yaxis=dict(title='Qtd', showgrid=True, gridcolor=THEME['grid']), yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False), xaxis=dict(showgrid=False),
-                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', legend=dict(orientation="h", y=1.1), margin=dict(l=0, r=0, t=30, b=0))
+    fig.update_layout(height=350, yaxis=dict(title='Qtd Atendimentos', showgrid=True, gridcolor=THEME['grid']), yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False), xaxis=dict(showgrid=False),
+                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', legend=dict(orientation="h", y=1.1),
+                      margin=dict(l=0, r=0, t=0, b=0))  # t=30 -> t=0 para remover espaço no topo
     st.plotly_chart(fig, use_container_width=True)
 
 def render_evolution_chart(df):
@@ -112,7 +153,7 @@ def render_evolution_chart(df):
     fig = px.area(df_line, x='Hora_Cheia', y='Volume', markers=True)
     fig.update_traces(line=dict(color='#8b5cf6', shape='spline'), fillcolor='rgba(139, 92, 246, 0.1)')
     fig.update_layout(height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor=THEME['grid']), 
-                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=10, b=0))
+                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=0, b=0))
     st.plotly_chart(fig, use_container_width=True)
 
 def render_heatmap_clean(df):
