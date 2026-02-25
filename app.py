@@ -36,53 +36,56 @@ if 'Setor' in df_filtered.columns:
 perc_sac = (realizado_sac / meta_total_sac * 100) if meta_total_sac > 0 else 0
 perc_pend = (realizado_pend / meta_total_pend * 100) if meta_total_pend > 0 else 0
 
-def get_cor(realizado, meta, tma_target, ativos):
-    if meta == 0: return "off"
-    is_today = end_date == datetime.today().date()
-    if is_today:
-        agora = datetime.now()
-        horas_rest = max(0, 17.3 - (agora.hour + agora.minute/60))
-        projecao = realizado + ((ativos * horas_rest * 60 * 0.70) / tma_target)
-        return "normal" if projecao >= meta else "inverse"
-    return "normal" if realizado >= meta else "inverse"
-
-qtd_sac = df_metas[df_metas['Meta_SAC'] > 0].shape[0]
-qtd_pend = df_metas[df_metas['Meta_PEND'] > 0].shape[0]
-cor_sac = get_cor(realizado_sac, meta_total_sac, 5.383, qtd_sac)
-cor_pend = get_cor(realizado_pend, meta_total_pend, 5.133, qtd_pend)
-
-# --- VISUALIZAÇÃO ---
+# --- HEADER & KPIS ---
 ui_components.render_header()
 
+# KPIs usando containers nativos para visual de card
 c1, c2, c3, c4 = st.columns(4)
-with c1: st.metric("Total Registros", f"{total_bruto}")
-with c2: st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
-with c3: st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
+with c1:
+    with st.container(border=True):
+        st.metric("Total Registros", f"{total_bruto}")
+with c2:
+    with st.container(border=True):
+        st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
+with c3:
+    with st.container(border=True):
+        st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
 with c4:
-    media_meta = (perc_sac + perc_pend) / 2
-    st.metric("Meta Global", f"{media_meta:.1f}%", "Média Setores")
+    with st.container(border=True):
+        media_meta = (perc_sac + perc_pend) / 2
+        st.metric("Meta Global", f"{media_meta:.1f}%", "Média Setores")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# --- GRÁFICOS COM CONTAINER NATIVO (border=True) ---
 col_main_1, col_main_2 = st.columns([2, 1])
+
 with col_main_1:
-    st.subheader("📊 Performance Individual")
-    ui_components.render_main_bar_chart(df_filtered)
+    with st.container(border=True):
+        st.markdown("### 📊 Performance Individual")
+        ui_components.render_main_bar_chart(df_filtered)
+
 with col_main_2:
-    st.subheader("🎯 Acompanhamento de Metas")
-    ui_components.render_gauges(perc_sac, perc_pend)
+    with st.container(border=True):
+        st.markdown("### 🎯 Metas")
+        ui_components.render_gauges(perc_sac, perc_pend)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-st.subheader("⚡ Capacidade vs Realizado (TMA)")
-ui_components.render_capacity_scatter(df_filtered)
+with st.container(border=True):
+    st.markdown("### ⚡ Capacidade vs Realizado (TMA)")
+    ui_components.render_capacity_scatter(df_filtered)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 col_ev1, col_ev2 = st.columns(2)
+
 with col_ev1:
-    st.subheader("📈 Fluxo Horário")
-    ui_components.render_evolution_chart(df_filtered)
+    with st.container(border=True):
+        st.markdown("### 📈 Fluxo Horário")
+        ui_components.render_evolution_chart(df_filtered)
+
 with col_ev2:
-    st.subheader("🔥 Mapa de Calor")
-    ui_components.render_heatmap_clean(df_filtered)
+    with st.container(border=True):
+        st.markdown("### 🔥 Mapa de Calor")
+        ui_components.render_heatmap_clean(df_filtered)
