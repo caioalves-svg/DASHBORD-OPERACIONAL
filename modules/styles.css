@@ -17,22 +17,31 @@ div[data-testid="stAppViewBlockContainer"] {
     padding-top: 0.5rem !important;
 }
 
-/* Remove gap entre gráficos */
 div[data-testid="stHorizontalBlock"] {
     gap: 0.5rem !important;
 }
 
-/* Remove padding dos gráficos Plotly */
 div[data-testid="stPlotlyChart"] {
     margin-top: 0 !important;
     padding-top: 0 !important;
 }
 
-/* Sidebar: remove espaço extra no topo */
 section[data-testid="stSidebar"] > div:first-child {
     padding-top: 1rem !important;
 }
-/* ===================================== */
+
+/* ===== ANULA ESTILO EM DIVS VAZIAS ===== */
+div[data-testid="stMetric"]:empty,
+div[data-testid="column"] > div:empty,
+div[data-testid="stVerticalBlock"] > div:empty {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}
+/* ======================================= */
 
 .stApp {
     background-color: #f8f9fa;
@@ -58,7 +67,7 @@ h1, h2, h3, h4 {
 
 .header-title { font-size: 1.8rem; font-weight: 700; }
 
-/* Aplica estilo apenas em metrics com conteúdo — evita caixas brancas vazias */
+/* Aplica estilo apenas em metrics com conteúdo */
 [data-testid="stMetric"]:has([data-testid="stMetricValue"]) {
     background-color: white;
     padding: 15px;
