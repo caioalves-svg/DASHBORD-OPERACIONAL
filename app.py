@@ -102,5 +102,7 @@ with aba1:
     with col_ev2:
         ui_components.render_heatmap_clean(df_filtered)
 
+    ui_components.render_ranking_alertas(df_filtered)
+
 with aba2:
     pedidos_portal.render_pedidos_portal(df_filtered)
