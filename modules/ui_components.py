@@ -56,49 +56,43 @@ def render_sidebar_filters(df_raw):
     return df, end
 
 def render_gauges(perc_sac, perc_pend, realizado_sac=0, meta_sac=0, realizado_pend=0, meta_pend=0):
-    def meta_card(titulo, icone, perc, realizado, meta, cor_ativa, cor_bg, cor_text):
+    def meta_card(titulo, icone, perc, realizado, meta, cor_base):
         atingiu = perc >= 100
         perc_bar = min(perc, 100)
         falta = max(0, int(meta) - int(realizado))
-        status_cor = "#10b981" if atingiu else cor_ativa
-        status_bg  = "#f0fdf4" if atingiu else cor_bg
-        status_txt = f"✅ Meta atingida!" if atingiu else f"Faltam <b>{falta}</b> atendimentos"
-        status_icon = "🏆" if atingiu else "📈"
+
+        # Cor muda tudo: verde se bateu, vermelho se não bateu
+        cor      = "#10b981" if atingiu else "#ef4444"
+        cor_bg   = "#f0fdf4" if atingiu else "#fee2e2"
+        status_txt  = "Meta atingida!" if atingiu else f"Faltam <b>{falta}</b> atendimentos"
+        status_icon = "🏆" if atingiu else "⚠️"
 
         return (
-            f'<div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border-top:4px solid {cor_ativa};margin-bottom:12px;">'
+            f'<div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border-top:4px solid {cor};margin-bottom:12px;">'
             f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
             f'<div style="display:flex;align-items:center;gap:8px;">'
             f'<span style="font-size:20px;">{icone}</span>'
             f'<span style="font-size:15px;font-weight:700;color:#1f2937;">{titulo}</span>'
             f'</div>'
-            f'<span style="font-size:26px;font-weight:800;color:{cor_ativa};">{perc:.1f}%</span>'
+            f'<span style="font-size:26px;font-weight:800;color:{cor};">{perc:.1f}%</span>'
             f'</div>'
             f'<div style="background:#f3f4f6;border-radius:999px;height:10px;margin-bottom:10px;overflow:hidden;">'
-            f'<div style="width:{perc_bar}%;height:100%;border-radius:999px;background:{cor_ativa};"></div>'
+            f'<div style="width:{perc_bar}%;height:100%;border-radius:999px;background:{cor};"></div>'
             f'</div>'
             f'<div style="display:flex;justify-content:space-between;font-size:12px;color:#6b7280;margin-bottom:12px;">'
             f'<span>0</span>'
-            f'<span style="font-weight:600;color:#374151;">Feito: <b style="color:{cor_ativa};">{int(realizado)}</b> / {int(meta)}</span>'
+            f'<span style="font-weight:600;color:#374151;">Feito: <b style="color:{cor};">{int(realizado)}</b> / {int(meta)}</span>'
             f'<span>Meta</span>'
             f'</div>'
-            f'<div style="background:{status_bg};border-radius:8px;padding:8px 12px;font-size:13px;color:{status_cor};text-align:center;">'
+            f'<div style="background:{cor_bg};border-radius:8px;padding:8px 12px;font-size:13px;color:{cor};text-align:center;">'
             f'{status_icon} {status_txt}'
             f'</div>'
             f'</div>'
         )
 
     st.markdown("<h4 style='margin-bottom:12px; color:#1f2937;'>🎯 Metas</h4>", unsafe_allow_html=True)
-
-    st.markdown(meta_card(
-        "SAC", "📞", perc_sac, realizado_sac, meta_sac,
-        cor_ativa="#6366f1", cor_bg="#eef2ff", cor_text="#4338ca"
-    ), unsafe_allow_html=True)
-
-    st.markdown(meta_card(
-        "Pendência", "⏳", perc_pend, realizado_pend, meta_pend,
-        cor_ativa="#f59e0b", cor_bg="#fffbeb", cor_text="#92400e"
-    ), unsafe_allow_html=True)
+    st.markdown(meta_card("SAC", "📞", perc_sac, realizado_sac, meta_sac, cor_base="#6366f1"), unsafe_allow_html=True)
+    st.markdown(meta_card("Pendência", "⏳", perc_pend, realizado_pend, meta_pend, cor_base="#f59e0b"), unsafe_allow_html=True)
 
 def render_main_bar_chart(df):
     if df.empty: return st.info("Sem dados.")
