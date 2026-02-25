@@ -6,12 +6,20 @@
     --text-main: #111827;
 }
 
+/* Fundo da página cinza claro */
 .stApp {
     background-color: var(--bg-page);
     font-family: 'Inter', sans-serif;
 }
 
-/* Header Bonito */
+/* Títulos */
+h1, h2, h3, h4, h5 {
+    color: var(--text-main) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+}
+
+/* Header Gradiente (Topo) */
 .custom-header {
     background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
     padding: 1.5rem 2rem;
@@ -25,21 +33,20 @@
 }
 .header-title { font-size: 1.8rem; font-weight: 700; }
 
-/* ESTILIZAÇÃO DO ST.METRIC NATIVO */
-/* Isso transforma o metric padrão do Streamlit naquele card branco bonito */
+/* KPI Cards (Apenas os números do topo) */
+/* Aplicamos estilo APENAS ao stMetric, sem afetar gráficos */
 div[data-testid="stMetric"] {
     background-color: #ffffff;
     border: 1px solid #e5e7eb;
     padding: 15px 20px;
-    border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
-
-/* Ajuste dos textos do Metric */
 div[data-testid="stMetricLabel"] { font-size: 0.85rem; font-weight: 600; color: #6b7280; }
 div[data-testid="stMetricValue"] { font-size: 1.8rem; font-weight: 800; color: #111827; }
-div[data-testid="stMetricDelta"] { font-weight: 600; }
 
 /* Sidebar */
 section[data-testid="stSidebar"] { background-color: white; border-right: 1px solid #e5e7eb; }
 .block-container { padding-top: 2rem; padding-bottom: 3rem; }
+
+/* GARANTIA: Nenhuma regra extra para stPlotlyChart ou containers vazios */
