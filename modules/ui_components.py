@@ -199,3 +199,121 @@ def render_heatmap_clean(df):
     )
     st.markdown(f"<p style='{CHART_TITLE_STYLE}'>🔥 Mapa de Calor Semanal</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
+
+def render_ranking_alertas(df):
+    if df.empty: return
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_rank, col_alert = st.columns([1, 1])
+
+    # ── RANKING TOP 3 ────────────────────────────────────────────────────────
+    with col_rank:
+        st.markdown(f"<p style='{CHART_TITLE_STYLE}'>🏆 Ranking do Período</p>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        df_rank = (
+            df[df['Eh_Novo_Episodio'] == 1]
+            .groupby('Colaborador')
+            .agg(Atendimentos=('Eh_Novo_Episodio', 'sum'), TMA=('TMA_Valido', 'mean'))
+            .reset_index()
+            .sort_values('Atendimentos', ascending=False)
+            .head(5)
+            .reset_index(drop=True)
+        )
+
+        medalhas = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
+        cores    = ['#f59e0b', '#9ca3af', '#cd7c3f', '#6366f1', '#6366f1']
+        bg_cores = ['#fffbeb', '#f9fafb', '#fdf4ee', '#eef2ff', '#eef2ff']
+
+        max_at = df_rank['Atendimentos'].max() if not df_rank.empty else 1
+
+        for i, row in df_rank.iterrows():
+            perc_bar = int(row['Atendimentos'] / max_at * 100)
+            tma_str = f"{row['TMA']:.1f} min" if not pd.isna(row['TMA']) else "-"
+            st.markdown(
+                f'<div style="background:{bg_cores[i]};border-radius:12px;padding:14px 16px;margin-bottom:10px;border-left:4px solid {cores[i]};">'
+                f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+                f'<div style="display:flex;align-items:center;gap:10px;">'
+                f'<span style="font-size:22px;">{medalhas[i]}</span>'
+                f'<span style="font-size:14px;font-weight:700;color:#1f2937;">{row["Colaborador"]}</span>'
+                f'</div>'
+                f'<span style="font-size:20px;font-weight:800;color:{cores[i]};">{int(row["Atendimentos"])}</span>'
+                f'</div>'
+                f'<div style="background:#e5e7eb;border-radius:999px;height:6px;margin-bottom:6px;overflow:hidden;">'
+                f'<div style="width:{perc_bar}%;height:100%;border-radius:999px;background:{cores[i]};"></div>'
+                f'</div>'
+                f'<span style="font-size:11px;color:#6b7280;">TMA médio: {tma_str}</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+    # ── ALERTAS ──────────────────────────────────────────────────────────────
+    with col_alert:
+        st.markdown(f"<p style='{CHART_TITLE_STYLE}'>⚠️ Alertas da Equipe</p>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        df_colab = (
+            df[df['Eh_Novo_Episodio'] == 1]
+            .groupby('Colaborador')
+            .agg(Atendimentos=('Eh_Novo_Episodio', 'sum'), TMA=('TMA_Valido', 'mean'))
+            .reset_index()
+        )
+
+        alertas = []
+
+        if not df_colab.empty:
+            tma_media = df_colab['TMA'].mean()
+            media_at  = df_colab['Atendimentos'].mean()
+
+            # TMA muito acima da média (>50%)
+            tma_alto = df_colab[df_colab['TMA'] > tma_media * 1.5].sort_values('TMA', ascending=False)
+            for _, r in tma_alto.head(3).iterrows():
+                alertas.append({
+                    'icone': '🐢', 'cor': '#ef4444', 'bg': '#fee2e2',
+                    'titulo': r['Colaborador'],
+                    'msg': f"TMA {r['TMA']:.1f} min — {((r['TMA']/tma_media - 1)*100):.0f}% acima da média ({tma_media:.1f} min)"
+                })
+
+            # Volume muito abaixo da média (<50%)
+            baixo_vol = df_colab[df_colab['Atendimentos'] < media_at * 0.5].sort_values('Atendimentos')
+            for _, r in baixo_vol.head(3).iterrows():
+                alertas.append({
+                    'icone': '📉', 'cor': '#f59e0b', 'bg': '#fffbeb',
+                    'titulo': r['Colaborador'],
+                    'msg': f"Apenas {int(r['Atendimentos'])} atendimentos — {((1 - r['Atendimentos']/media_at)*100):.0f}% abaixo da média ({media_at:.0f})"
+                })
+
+            # Duplicidade alta por colaborador
+            df_dup = df.groupby('Colaborador').agg(
+                Total=('Data', 'count'),
+                Reais=('Eh_Novo_Episodio', 'sum')
+            ).reset_index()
+            df_dup['Dup'] = (df_dup['Total'] - df_dup['Reais']) / df_dup['Total'] * 100
+            dup_alto = df_dup[(df_dup['Dup'] > 25) & (df_dup['Total'] > 5)].sort_values('Dup', ascending=False)
+            for _, r in dup_alto.head(2).iterrows():
+                alertas.append({
+                    'icone': '🔁', 'cor': '#8b5cf6', 'bg': '#ede9fe',
+                    'titulo': r['Colaborador'],
+                    'msg': f"Duplicidade de {r['Dup']:.1f}% — acima do alvo de 25%"
+                })
+
+        if not alertas:
+            st.markdown(
+                '<div style="background:#f0fdf4;border-radius:12px;padding:20px;text-align:center;border:1px dashed #10b981;">'
+                '<span style="font-size:28px;">✅</span>'
+                '<p style="margin:8px 0 0;font-size:14px;font-weight:600;color:#10b981;">Tudo certo! Nenhum alerta no período.</p>'
+                '</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            for a in alertas[:6]:
+                st.markdown(
+                    f'<div style="background:{a["bg"]};border-radius:12px;padding:12px 16px;margin-bottom:10px;border-left:4px solid {a["cor"]};">'
+                    f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+                    f'<span style="font-size:18px;">{a["icone"]}</span>'
+                    f'<span style="font-size:13px;font-weight:700;color:#1f2937;">{a["titulo"]}</span>'
+                    f'</div>'
+                    f'<span style="font-size:12px;color:#6b7280;">{a["msg"]}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
