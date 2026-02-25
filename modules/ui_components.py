@@ -14,6 +14,8 @@ THEME = {
 
 TITLE_FONT = dict(size=18, color=THEME['text'], family="Inter, sans-serif")
 
+CHART_TITLE_STYLE = "font-size:18px; font-weight:600; color:#1f2937; font-family:Inter,sans-serif; margin-bottom:-10px; padding-left:5px;"
+
 def load_css():
     try:
         with open("modules/styles.css") as f:
@@ -88,15 +90,15 @@ def render_main_bar_chart(df):
     
     fig.update_traces(textposition='outside', marker_cornerradius=4)
     fig.update_layout(
-        title=dict(text="📊 Performance Individual", font=TITLE_FONT, x=0.01, y=0.97),  # y ajustado
         height=450,
         xaxis=dict(showgrid=False), 
         yaxis=dict(title=None),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None),
         plot_bgcolor='rgba(0,0,0,0)', 
         paper_bgcolor='rgba(0,0,0,0)', 
-        margin=dict(l=10, r=10, t=110, b=10)  # t aumentado de 90 → 110
+        margin=dict(l=10, r=10, t=40, b=10)
     )
+    st.markdown(f"<p style='{CHART_TITLE_STYLE}'>📊 Performance Individual</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
 
 def render_capacity_scatter(df):
@@ -113,14 +115,14 @@ def render_capacity_scatter(df):
     fig.add_trace(go.Scatter(x=df_tma['Colaborador'], y=df_tma['mean'], mode='markers+lines', name='TMA Real', yaxis='y2', line=dict(color='#ef4444', width=3), marker=dict(size=8, color='white', line=dict(width=2, color='#ef4444'))))
     
     fig.update_layout(
-        title=dict(text="⚡ Capacidade vs Realizado (TMA)", font=TITLE_FONT, x=0.01, y=0.97),
         height=400,
         yaxis=dict(title='Atendimentos', showgrid=True, gridcolor=THEME['grid']),
         yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False),
         legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5, title=None),
         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=10, r=10, t=120, b=10)
+        margin=dict(l=10, r=10, t=50, b=10)
     )
+    st.markdown(f"<p style='{CHART_TITLE_STYLE}'>⚡ Capacidade vs Realizado (TMA)</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
 
 def render_evolution_chart(df):
@@ -129,13 +131,13 @@ def render_evolution_chart(df):
     fig = px.area(df_line, x='Hora_Cheia', y='Volume', markers=True)
     fig.update_traces(line=dict(color=THEME['primary'], shape='spline'), fillcolor='rgba(99, 102, 241, 0.1)')
     fig.update_layout(
-        title=dict(text="📈 Fluxo Horário", font=TITLE_FONT, x=0.01, y=0.97),
         height=320,
         xaxis=dict(showgrid=False, title=None),
         yaxis=dict(showgrid=True, gridcolor=THEME['grid'], title=None),
         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=10, r=10, t=90, b=10)
+        margin=dict(l=10, r=10, t=20, b=10)
     )
+    st.markdown(f"<p style='{CHART_TITLE_STYLE}'>📈 Fluxo Horário</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
 
 def render_heatmap_clean(df):
@@ -145,9 +147,9 @@ def render_heatmap_clean(df):
     df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
     fig = px.density_heatmap(df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados', color_continuous_scale='Purples', text_auto=True)
     fig.update_layout(
-        title=dict(text="🔥 Mapa de Calor Semanal", font=TITLE_FONT, x=0.01, y=0.97),
         height=320, coloraxis_showscale=False,
         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=10, r=10, t=90, b=10)
+        margin=dict(l=10, r=10, t=20, b=10)
     )
+    st.markdown(f"<p style='{CHART_TITLE_STYLE}'>🔥 Mapa de Calor Semanal</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
