@@ -67,6 +67,7 @@ with c4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# Layout: Gráficos sem container customizado (para evitar fantasmas)
 col_main_1, col_main_2 = st.columns([2, 1])
 with col_main_1:
     st.markdown("### 📊 Performance Individual")
