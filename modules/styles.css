@@ -6,20 +6,12 @@
     --text-main: #111827;
 }
 
-/* Fundo da Página */
 .stApp {
     background-color: var(--bg-page);
     font-family: 'Inter', sans-serif;
 }
 
-/* Títulos */
-h1, h2, h3, h4 {
-    color: var(--text-main) !important;
-    font-family: 'Inter', sans-serif !important;
-    font-weight: 700 !important;
-}
-
-/* Header (Mantido pois funciona) */
+/* Header Bonito */
 .custom-header {
     background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
     padding: 1.5rem 2rem;
@@ -33,24 +25,21 @@ h1, h2, h3, h4 {
 }
 .header-title { font-size: 1.8rem; font-weight: 700; }
 
-/* KPI Cards (Topo - Mantidos pois são HTML puro) */
-.metric-container {
-    background-color: white;
-    border-radius: 12px;
-    padding: 1.2rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+/* ESTILIZAÇÃO DO ST.METRIC NATIVO */
+/* Isso transforma o metric padrão do Streamlit naquele card branco bonito */
+div[data-testid="stMetric"] {
+    background-color: #ffffff;
     border: 1px solid #e5e7eb;
+    padding: 15px 20px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
-.metric-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #6b7280; }
-.metric-value { font-size: 2rem; font-weight: 800; color: #111827; }
-.metric-delta { display: inline-flex; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-top: 5px; }
 
-.delta-positive { background-color: #ecfdf5; color: #059669; }
-.delta-negative { background-color: #fef2f2; color: #dc2626; }
-.delta-neutral { background-color: #f3f4f6; color: #4b5563; }
+/* Ajuste dos textos do Metric */
+div[data-testid="stMetricLabel"] { font-size: 0.85rem; font-weight: 600; color: #6b7280; }
+div[data-testid="stMetricValue"] { font-size: 1.8rem; font-weight: 800; color: #111827; }
+div[data-testid="stMetricDelta"] { font-weight: 600; }
 
 /* Sidebar */
 section[data-testid="stSidebar"] { background-color: white; border-right: 1px solid #e5e7eb; }
 .block-container { padding-top: 2rem; padding-bottom: 3rem; }
-
-/* GARANTIA: Removemos qualquer estilo forçado em gráficos */
