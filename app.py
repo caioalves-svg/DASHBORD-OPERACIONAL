@@ -36,38 +36,23 @@ if 'Setor' in df_filtered.columns:
 perc_sac = (realizado_sac / meta_total_sac * 100) if meta_total_sac > 0 else 0
 perc_pend = (realizado_pend / meta_total_pend * 100) if meta_total_pend > 0 else 0
 
-def get_cor(realizado, meta, tma_target, ativos):
-    if meta == 0: return "off"
-    is_today = end_date == datetime.today().date()
-    if is_today:
-        agora = datetime.now()
-        horas_rest = max(0, 17.3 - (agora.hour + agora.minute/60))
-        projecao = realizado + ((ativos * horas_rest * 60 * 0.70) / tma_target)
-        return "normal" if projecao >= meta else "inverse"
-    return "normal" if realizado >= meta else "inverse"
-
-qtd_sac = df_metas[df_metas['Meta_SAC'] > 0].shape[0]
-qtd_pend = df_metas[df_metas['Meta_PEND'] > 0].shape[0]
-cor_sac = get_cor(realizado_sac, meta_total_sac, 5.383, qtd_sac)
-cor_pend = get_cor(realizado_pend, meta_total_pend, 5.133, qtd_pend)
-
-# --- VISUALIZAÇÃO ---
+# --- HEADER & KPIS ---
 ui_components.render_header()
 
 c1, c2, c3, c4 = st.columns(4)
-with c1: ui_components.kpi_card_new("Total Registros", f"{total_bruto}", icon="📦")
-with c2: ui_components.kpi_card_new("Atendimentos Reais", f"{total_liquido}", delta="Produtividade", delta_type="positive", icon="✅")
+with c1: 
+    st.metric("Total Registros", f"{total_bruto}")
+with c2: 
+    st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
 with c3: 
-    cor_dup = "positive" if taxa_duplicidade < 15 else "negative"
-    ui_components.kpi_card_new("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", delta="Alvo: <15%", delta_type=cor_dup, icon="♻️")
+    st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
 with c4:
     media_meta = (perc_sac + perc_pend) / 2
-    cor_meta = "positive" if media_meta >= 100 else "neutral"
-    ui_components.kpi_card_new("Meta Global", f"{media_meta:.1f}%", delta="Média Setores", delta_type=cor_meta, icon="🎯")
+    st.metric("Meta Global", f"{media_meta:.1f}%", "Média Setores")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Layout: Gráficos sem container customizado (para evitar fantasmas)
+# --- GRÁFICOS ---
 col_main_1, col_main_2 = st.columns([2, 1])
 with col_main_1:
     st.markdown("### 📊 Performance Individual")
