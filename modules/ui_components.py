@@ -12,13 +12,12 @@ THEME = {
     'text': '#1f2937'
 }
 
-# Configuração Padrão de Fonte para Títulos
-TITLE_CONFIG = dict(
+# --- CORREÇÃO AQUI ---
+# Removemos x e y daqui, pois 'font' não aceita posição
+TITLE_FONT = dict(
     size=18,
     color=THEME['text'],
-    family="Inter, sans-serif",
-    x=0, # Alinhado a esquerda
-    y=0.95
+    family="Inter, sans-serif"
 )
 
 def load_css():
@@ -27,7 +26,7 @@ def load_css():
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except: pass
     
-    # Script JS para limpar divs vazias (Mantido do seu código original)
+    # Script JS para limpar divs vazias
     st.markdown("""
         <script>
         function removeEmptyDivs() {
@@ -95,15 +94,15 @@ def render_gauges(perc_sac, perc_pend):
         fig.update_layout(height=160, margin=dict(l=20, r=20, t=40, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         return fig
 
-    # Adiciona um título visual para a seção de metas
-    st.markdown("<h4 style='font-size:18px; margin-bottom:10px;'>🎯 Acompanhamento de Metas</h4>", unsafe_allow_html=True)
+    # Título manual via HTML para essa seção específica
+    st.markdown("<h4 style='font-size:18px; margin-bottom:10px; color:#1f2937;'>🎯 Acompanhamento de Metas</h4>", unsafe_allow_html=True)
     
     c1, c2 = st.columns(2)
     with c1:
         color = THEME['secondary'] if perc_sac >= 100 else THEME['primary']
         st.plotly_chart(create_gauge(perc_sac, "Meta SAC", color), use_container_width=True)
     with c2:
-        color = THEME['secondary'] if perc_pend >= 100 else "#f59e0b" # Amarelo se não bateu, Verde se bateu
+        color = THEME['secondary'] if perc_pend >= 100 else "#f59e0b"
         st.plotly_chart(create_gauge(perc_pend, "Meta Pendência", color), use_container_width=True)
 
 def render_main_bar_chart(df):
@@ -115,12 +114,13 @@ def render_main_bar_chart(df):
     df_melt = df_vol.melt(id_vars='Colaborador', var_name='Tipo', value_name='Volume')
     
     fig = px.bar(df_melt, y='Colaborador', x='Volume', color='Tipo', orientation='h', barmode='group',
-                 color_discrete_map={'Bruto': '#e0e7ff', 'Liquido': THEME['primary']}, # Roxo claro e Roxo forte
+                 color_discrete_map={'Bruto': '#e0e7ff', 'Liquido': THEME['primary']},
                  text='Volume')
     
     fig.update_traces(textposition='outside', marker_cornerradius=4)
     fig.update_layout(
-        title=dict(text="📊 Performance Individual", font=TITLE_CONFIG),
+        # CORREÇÃO: x e y fora do dict font
+        title=dict(text="📊 Performance Individual", font=TITLE_FONT, x=0, y=0.95),
         height=400, 
         xaxis=dict(showgrid=False), 
         yaxis=dict(title=None), 
@@ -142,18 +142,16 @@ def render_capacity_scatter(df):
     df_tma = df_tma.sort_values('Capacidade', ascending=False)
     
     fig = go.Figure()
-    # Barra verde (Capacidade)
     fig.add_trace(go.Bar(
         x=df_tma['Colaborador'], y=df_tma['Capacidade'], 
         name='Capacidade Projetada', 
-        marker_color='#d1fae5', # Verde bem claro
-        marker_line_color=THEME['secondary'], # Verde borda
+        marker_color='#d1fae5', 
+        marker_line_color=THEME['secondary'], 
         marker_line_width=1, 
         text=df_tma['Capacidade'], 
         textposition='outside'
     ))
     
-    # Linha Vermelha (TMA) - Mantida vermelha para alerta/contraste
     fig.add_trace(go.Scatter(
         x=df_tma['Colaborador'], y=df_tma['mean'], 
         mode='markers+lines', 
@@ -164,7 +162,8 @@ def render_capacity_scatter(df):
     ))
     
     fig.update_layout(
-        title=dict(text="⚡ Capacidade vs Realizado (TMA)", font=TITLE_CONFIG),
+        # CORREÇÃO: x e y fora do dict font
+        title=dict(text="⚡ Capacidade vs Realizado (TMA)", font=TITLE_FONT, x=0, y=0.95),
         height=350, 
         yaxis=dict(title='Qtd Atendimentos', showgrid=True, gridcolor=THEME['grid']), 
         yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False), 
@@ -183,12 +182,13 @@ def render_evolution_chart(df):
     fig = px.area(df_line, x='Hora_Cheia', y='Volume', markers=True)
     
     fig.update_traces(
-        line=dict(color=THEME['primary'], shape='spline'), # Roxo Principal
-        fillcolor='rgba(99, 102, 241, 0.1)' # Roxo transparente
+        line=dict(color=THEME['primary'], shape='spline'),
+        fillcolor='rgba(99, 102, 241, 0.1)'
     )
     
     fig.update_layout(
-        title=dict(text="📈 Fluxo Horário", font=TITLE_CONFIG),
+        # CORREÇÃO: x e y fora do dict font
+        title=dict(text="📈 Fluxo Horário", font=TITLE_FONT, x=0, y=0.95),
         height=320, 
         xaxis=dict(showgrid=False, title=None), 
         yaxis=dict(showgrid=True, gridcolor=THEME['grid'], title=None),
@@ -205,7 +205,6 @@ def render_heatmap_clean(df):
     
     df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
     
-    # Cores alteradas para Purples para combinar com o Roxo Principal
     fig = px.density_heatmap(
         df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados',
         color_continuous_scale='Purples', 
@@ -213,7 +212,8 @@ def render_heatmap_clean(df):
     )
     
     fig.update_layout(
-        title=dict(text="🔥 Mapa de Calor Semanal", font=TITLE_CONFIG),
+        # CORREÇÃO: x e y fora do dict font
+        title=dict(text="🔥 Mapa de Calor Semanal", font=TITLE_FONT, x=0, y=0.95),
         height=320, 
         coloraxis_showscale=False, 
         xaxis=dict(title=None), 
