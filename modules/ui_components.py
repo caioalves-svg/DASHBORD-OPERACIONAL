@@ -8,45 +8,6 @@ from datetime import datetime
 THEME = {'primary': '#6366f1', 'grid': '#e5e7eb'}
 
 def load_css():
-    # Remove espaços em branco do Streamlit
-    st.markdown("""
-        <style>
-            /* Remove padding do topo da página */
-            .block-container {
-                padding-top: 0.5rem !important;
-                padding-bottom: 0rem !important;
-            }
-
-            /* Remove header branco do Streamlit */
-            header[data-testid="stHeader"] {
-                height: 0 !important;
-                min-height: 0 !important;
-                visibility: hidden !important;
-            }
-
-            /* Remove espaço acima dos gráficos Plotly */
-            div[data-testid="stPlotlyChart"] {
-                margin-top: 0 !important;
-                padding-top: 0 !important;
-            }
-
-            /* Remove gaps entre blocos verticais */
-            div[data-testid="stVerticalBlock"] > div:has(iframe) {
-                padding: 0 !important;
-            }
-
-            /* Sidebar sem espaço extra no topo */
-            section[data-testid="stSidebar"] > div:first-child {
-                padding-top: 1rem !important;
-            }
-
-            /* Remove espaço entre elementos gerais */
-            div[data-testid="stVerticalBlock"] {
-                gap: 0rem !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
     try:
         with open("modules/styles.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -77,7 +38,9 @@ def render_sidebar_filters(df_raw):
     else:
         start, end = date_range, date_range
 
-    st.sidebar.markdown("---")
+    # REMOVIDO: st.sidebar.markdown("---") <- causava espaço extra na sidebar
+    st.sidebar.markdown("<div style='margin: 0.3rem 0'></div>", unsafe_allow_html=True)
+
     setores = st.sidebar.multiselect("Setor", options=sorted(df_raw['Setor'].unique())) if 'Setor' in df_raw.columns else []
     colaboradores = st.sidebar.multiselect("Colaborador", options=sorted(df_raw['Colaborador'].unique()))
     
@@ -144,7 +107,7 @@ def render_capacity_scatter(df):
     
     fig.update_layout(height=350, yaxis=dict(title='Qtd Atendimentos', showgrid=True, gridcolor=THEME['grid']), yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False), xaxis=dict(showgrid=False),
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', legend=dict(orientation="h", y=1.1),
-                      margin=dict(l=0, r=0, t=0, b=0))  # t=30 -> t=0 para remover espaço no topo
+                      margin=dict(l=0, r=0, t=0, b=0))
     st.plotly_chart(fig, use_container_width=True)
 
 def render_evolution_chart(df):
