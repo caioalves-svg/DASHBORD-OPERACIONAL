@@ -1,20 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-:root {
-    --primary: #6366f1;
-    --bg-page: #f3f4f6;
-    --text-main: #111827;
-}
-
-/* Fundo da página cinza claro */
+/* Configuração Geral */
 .stApp {
-    background-color: var(--bg-page);
+    background-color: #f8f9fa; /* Fundo cinza bem suave */
     font-family: 'Inter', sans-serif;
 }
 
-/* Títulos */
-h1, h2, h3, h4, h5 {
-    color: var(--text-main) !important;
+h1, h2, h3, h4 {
+    color: #1f2937 !important;
     font-family: 'Inter', sans-serif !important;
     font-weight: 700 !important;
 }
@@ -33,20 +26,14 @@ h1, h2, h3, h4, h5 {
 }
 .header-title { font-size: 1.8rem; font-weight: 700; }
 
-/* KPI Cards (Apenas os números do topo) */
-/* Aplicamos estilo APENAS ao stMetric, sem afetar gráficos */
-div[data-testid="stMetric"] {
-    background-color: #ffffff;
-    border: 1px solid #e5e7eb;
-    padding: 15px 20px;
-    border-radius: 12px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+/* Ajuste dos Metrics Nativos para ficarem bonitos */
+[data-testid="stMetric"] {
+    background-color: white;
+    padding: 15px;
+    border-radius: 10px;
+    /* O border=True do Python cuidará da borda, aqui ajustamos o resto */
 }
-div[data-testid="stMetricLabel"] { font-size: 0.85rem; font-weight: 600; color: #6b7280; }
-div[data-testid="stMetricValue"] { font-size: 1.8rem; font-weight: 800; color: #111827; }
 
 /* Sidebar */
 section[data-testid="stSidebar"] { background-color: white; border-right: 1px solid #e5e7eb; }
 .block-container { padding-top: 2rem; padding-bottom: 3rem; }
-
-/* GARANTIA: Nenhuma regra extra para stPlotlyChart ou containers vazios */
