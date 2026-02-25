@@ -65,49 +65,28 @@ def render_gauges(perc_sac, perc_pend, realizado_sac=0, meta_sac=0, realizado_pe
         status_txt = f"✅ Meta atingida!" if atingiu else f"Faltam <b>{falta}</b> atendimentos"
         status_icon = "🏆" if atingiu else "📈"
 
-        return f"""
-        <div style="
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border-top: 4px solid {cor_ativa};
-            margin-bottom: 12px;
-        ">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:20px;">{icone}</span>
-                    <span style="font-size:15px; font-weight:700; color:#1f2937;">{titulo}</span>
-                </div>
-                <span style="font-size:26px; font-weight:800; color:{cor_ativa};">{perc:.1f}%</span>
-            </div>
-
-            <div style="background:#f3f4f6; border-radius:999px; height:10px; margin-bottom:10px; overflow:hidden;">
-                <div style="
-                    width:{perc_bar}%;
-                    height:100%;
-                    border-radius:999px;
-                    background: linear-gradient(90deg, {cor_ativa}99, {cor_ativa});
-                    transition: width 0.6s ease;
-                "></div>
-            </div>
-
-            <div style="display:flex; justify-content:space-between; font-size:12px; color:#6b7280; margin-bottom:12px;">
-                <span>0</span>
-                <span style="font-weight:600; color:#374151;">Feito: <b style="color:{cor_ativa}">{int(realizado)}</b> / {int(meta)}</span>
-                <span>Meta</span>
-            </div>
-
-            <div style="
-                background: {status_bg};
-                border-radius: 8px;
-                padding: 8px 12px;
-                font-size: 13px;
-                color: {status_cor};
-                text-align: center;
-            ">{status_icon} {status_txt}</div>
-        </div>
-        """
+        return (
+            f'<div style="background:white;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border-top:4px solid {cor_ativa};margin-bottom:12px;">'
+            f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
+            f'<div style="display:flex;align-items:center;gap:8px;">'
+            f'<span style="font-size:20px;">{icone}</span>'
+            f'<span style="font-size:15px;font-weight:700;color:#1f2937;">{titulo}</span>'
+            f'</div>'
+            f'<span style="font-size:26px;font-weight:800;color:{cor_ativa};">{perc:.1f}%</span>'
+            f'</div>'
+            f'<div style="background:#f3f4f6;border-radius:999px;height:10px;margin-bottom:10px;overflow:hidden;">'
+            f'<div style="width:{perc_bar}%;height:100%;border-radius:999px;background:{cor_ativa};"></div>'
+            f'</div>'
+            f'<div style="display:flex;justify-content:space-between;font-size:12px;color:#6b7280;margin-bottom:12px;">'
+            f'<span>0</span>'
+            f'<span style="font-weight:600;color:#374151;">Feito: <b style="color:{cor_ativa};">{int(realizado)}</b> / {int(meta)}</span>'
+            f'<span>Meta</span>'
+            f'</div>'
+            f'<div style="background:{status_bg};border-radius:8px;padding:8px 12px;font-size:13px;color:{status_cor};text-align:center;">'
+            f'{status_icon} {status_txt}'
+            f'</div>'
+            f'</div>'
+        )
 
     st.markdown("<h4 style='margin-bottom:12px; color:#1f2937;'>🎯 Metas</h4>", unsafe_allow_html=True)
 
