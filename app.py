@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from modules import data_loader, business_logic, ui_components
+from modules import pedidos_portal
 
 st.set_page_config(page_title="Dashboard Operacional", page_icon="🚛", layout="wide", initial_sidebar_state="expanded")
 ui_components.load_css()
@@ -37,33 +38,39 @@ else:
 perc_sac = (realizado_sac / meta_total_sac * 100) if meta_total_sac > 0 else 0
 perc_pend = (realizado_pend / meta_total_pend * 100) if meta_total_pend > 0 else 0
 
-# --- VISUALIZAÇÃO ---
+# --- ABAS ---
 ui_components.render_header()
 
-c1, c2, c3, c4 = st.columns(4)
-with c1: st.metric("Total Registros", f"{total_bruto}")
-with c2: st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
-with c3: st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
-with c4:
-    media_meta = (perc_sac + perc_pend) / 2
-    st.metric("Meta Global", f"{media_meta:.1f}%", "Média Setores")
+aba1, aba2 = st.tabs(["📊 Operacional", "🛒 Pedidos & Portal"])
 
-st.markdown("<br>", unsafe_allow_html=True)
+with aba1:
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: st.metric("Total Registros", f"{total_bruto}")
+    with c2: st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
+    with c3: st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
+    with c4:
+        media_meta = (perc_sac + perc_pend) / 2
+        st.metric("Meta Global", f"{media_meta:.1f}%", "Média Setores")
 
-col_main_1, col_main_2 = st.columns([2, 1])
-with col_main_1:
-    ui_components.render_main_bar_chart(df_filtered)
-with col_main_2:
-    ui_components.render_gauges(
-        perc_sac, perc_pend,
-        realizado_sac=realizado_sac, meta_sac=meta_total_sac,
-        realizado_pend=realizado_pend, meta_pend=meta_total_pend
-    )
+    st.markdown("<br>", unsafe_allow_html=True)
 
-ui_components.render_capacity_scatter(df_filtered)
+    col_main_1, col_main_2 = st.columns([2, 1])
+    with col_main_1:
+        ui_components.render_main_bar_chart(df_filtered)
+    with col_main_2:
+        ui_components.render_gauges(
+            perc_sac, perc_pend,
+            realizado_sac=realizado_sac, meta_sac=meta_total_sac,
+            realizado_pend=realizado_pend, meta_pend=meta_total_pend
+        )
 
-col_ev1, col_ev2 = st.columns(2)
-with col_ev1:
-    ui_components.render_evolution_chart(df_filtered)
-with col_ev2:
-    ui_components.render_heatmap_clean(df_filtered)
+    ui_components.render_capacity_scatter(df_filtered)
+
+    col_ev1, col_ev2 = st.columns(2)
+    with col_ev1:
+        ui_components.render_evolution_chart(df_filtered)
+    with col_ev2:
+        ui_components.render_heatmap_clean(df_filtered)
+
+with aba2:
+    pedidos_portal.render_pedidos_portal(df_filtered)
