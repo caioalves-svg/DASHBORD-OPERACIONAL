@@ -14,7 +14,7 @@ with st.sidebar:
 try:
     df_raw = data_loader.get_raw_data()
 except Exception as e:
-    st.error(f"Erro ao conectar: {e}")
+    st.error(f"Erro: {e}")
     st.stop()
 
 df_processed = business_logic.process_data(df_raw)
@@ -51,7 +51,7 @@ qtd_pend = df_metas[df_metas['Meta_PEND'] > 0].shape[0]
 cor_sac = get_cor(realizado_sac, meta_total_sac, 5.383, qtd_sac)
 cor_pend = get_cor(realizado_pend, meta_total_pend, 5.133, qtd_pend)
 
-# --- LAYOUT ---
+# --- VISUALIZAÇÃO ---
 ui_components.render_header()
 
 c1, c2, c3, c4 = st.columns(4)
