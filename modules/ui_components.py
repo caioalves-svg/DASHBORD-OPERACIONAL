@@ -34,9 +34,6 @@ def render_header():
 
 # --- CARD KPI MODERNO ---
 def kpi_card_new(title, value, delta=None, delta_type="neutral", icon="📊"):
-    """
-    delta_type: 'positive', 'negative', 'neutral'
-    """
     delta_html = ""
     if delta:
         delta_html = f"<div class='metric-delta delta-{delta_type}'>{delta}</div>"
@@ -58,7 +55,6 @@ def render_sidebar_filters(df_raw):
     st.sidebar.markdown("### 🎛️ Controles")
     
     min_date = df_raw['Data'].min().date()
-    # Tratamento de erro caso a planilha esteja vazia ou data inválida
     try:
         max_val_data = df_raw['Data'].max().date()
     except:
@@ -67,7 +63,6 @@ def render_sidebar_filters(df_raw):
     max_date = max(max_val_data, datetime.now().date())
     today = datetime.now().date()
     
-    # Padrão: Hoje
     default_val = [today, today] if today >= min_date else [min_date, min_date]
 
     date_range = st.sidebar.date_input("Período", value=default_val, min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
@@ -92,12 +87,10 @@ def render_sidebar_filters(df_raw):
 # --- GRÁFICOS AVANÇADOS ---
 
 def render_gauges(perc_sac, perc_pend):
-    """Renderiza velocímetros para as metas"""
-    
     def create_gauge(value, title, color):
         fig = go.Figure(go.Indicator(
             mode = "gauge+number",
-            value = min(value, 100), # Trava em 100 visualmente
+            value = min(value, 100),
             title = {'text': title, 'font': {'size': 14, 'color': '#6b7280'}},
             number = {'suffix': "%", 'font': {'size': 26, 'color': '#1f2937'}},
             gauge = {
@@ -106,9 +99,7 @@ def render_gauges(perc_sac, perc_pend):
                 'bgcolor': "white",
                 'borderwidth': 2,
                 'bordercolor': "#f3f4f6",
-                'steps': [
-                    {'range': [0, 100], 'color': "#f3f4f6"}
-                ],
+                'steps': [{'range': [0, 100], 'color': "#f3f4f6"}],
             }
         ))
         fig.update_layout(height=160, margin=dict(l=20, r=20, t=30, b=10), paper_bgcolor='rgba(0,0,0,0)')
@@ -126,7 +117,6 @@ def render_gauges(perc_sac, perc_pend):
         st.caption(f"Status: {'✅ Batida' if perc_pend >= 100 else '⏳ Em andamento'}")
 
 def render_main_bar_chart(df):
-    """Gráfico de barras horizontal limpo e moderno"""
     if df.empty: 
         st.info("Sem dados para o período.")
         return
@@ -136,12 +126,11 @@ def render_main_bar_chart(df):
         Liquido=('Eh_Novo_Episodio', 'sum')
     ).reset_index().sort_values('Liquido', ascending=True)
     
-    # Transforma para long format
     df_melt = df_vol.melt(id_vars='Colaborador', var_name='Tipo', value_name='Volume')
     
     fig = px.bar(
         df_melt, y='Colaborador', x='Volume', color='Tipo', orientation='h', barmode='group',
-        color_discrete_map={'Bruto': '#e0e7ff', 'Liquido': '#6366f1'}, # Indigo claro e escuro
+        color_discrete_map={'Bruto': '#e0e7ff', 'Liquido': '#6366f1'},
         text='Volume'
     )
     
@@ -158,39 +147,29 @@ def render_main_bar_chart(df):
     st.plotly_chart(fig, use_container_width=True)
 
 def render_capacity_scatter(df):
-    """Gráfico de Capacidade estilo 'Lollipop'"""
     if df.empty:
-        st.info("Sem dados suficientes para o gráfico de capacidade.")
+        st.info("Sem dados suficientes.")
         return
     
-    # Renomear as colunas ANTES de filtrar
     df_tma = df.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
-    
-    # Renomeia para garantir que 'Amostra' exista
     df_tma.columns = ['Colaborador', 'mean', 'Amostra']
-    
-    # Agora sim podemos filtrar
     df_tma = df_tma[df_tma['Amostra'] > 5]
     
-    # 07:30 a 17:18 = 9.8h -> 588 min * 0.7 = 411.6
     TEMPO_UTIL = (17.3 - 7.5) * 60 * 0.70
     df_tma['Capacidade'] = (TEMPO_UTIL / df_tma['mean']).fillna(0).astype(int)
     df_tma = df_tma.sort_values('Capacidade', ascending=False)
     
     fig = go.Figure()
-    
-    # Barra de Fundo (Capacidade)
     fig.add_trace(go.Bar(
         x=df_tma['Colaborador'], y=df_tma['Capacidade'],
         name='Capacidade Projetada',
-        marker_color='#d1fae5', # Verde bem claro
+        marker_color='#d1fae5', 
         marker_line_color='#10b981',
         marker_line_width=1,
         text=df_tma['Capacidade'],
         textposition='outside'
     ))
     
-    # Linha de TMA
     fig.add_trace(go.Scatter(
         x=df_tma['Colaborador'], y=df_tma['mean'],
         mode='markers+lines',
@@ -210,30 +189,21 @@ def render_capacity_scatter(df):
         legend=dict(orientation="h", y=1.1),
         margin=dict(l=0, r=0, t=30, b=0)
     )
-    
-    # Container visual movido para DENTRO da função
-    st.markdown("<div style='background:white; padding:15px; border-radius:12px; border:1px solid #e5e7eb;'>", unsafe_allow_html=True)
+    # AQUI: Removi os st.markdown divs quebrados
     st.plotly_chart(fig, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 def render_evolution_chart(df):
-    """NOVO: Gráfico de Linha por Hora"""
     if df.empty: return
     
+    st.markdown("##### 📈 Fluxo Horário")
     df_line = df.groupby('Hora_Cheia').size().reset_index(name='Volume')
-    
-    # Ordenar por hora para o gráfico não ficar bagunçado
     df_line = df_line.sort_values('Hora_Cheia')
     
-    fig = px.area(
-        df_line, x='Hora_Cheia', y='Volume',
-        markers=True
-    )
+    fig = px.area(df_line, x='Hora_Cheia', y='Volume', markers=True)
     
-    # CORREÇÃO AQUI: fillcolor (sem underscore) e line=dict(color=...)
     fig.update_traces(
-        line=dict(color='#8b5cf6', shape='spline'), # Roxo, curva suave
-        fillcolor='rgba(139, 92, 246, 0.1)' # Preenchimento transparente
+        line=dict(color='#8b5cf6', shape='spline'), 
+        fillcolor='rgba(139, 92, 246, 0.1)'
     )
     
     fig.update_layout(
@@ -244,15 +214,11 @@ def render_evolution_chart(df):
         paper_bgcolor=THEME['bg_chart'],
         margin=dict(l=0, r=0, t=10, b=0)
     )
-
-    # Container visual movido para DENTRO da função
-    st.markdown("<div style='background:white; padding:20px; border-radius:12px; border:1px solid #e5e7eb;'>", unsafe_allow_html=True)
-    st.markdown("##### 📈 Fluxo Horário")
+    # AQUI: Removi os st.markdown divs quebrados
     st.plotly_chart(fig, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 def render_heatmap_clean(df):
-    
+    st.markdown("##### 🔥 Mapa de Calor Semanal")
     dias = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira']
     df_heat = df[df['Dia_Semana'].isin(dias)]
     
@@ -275,9 +241,42 @@ def render_heatmap_clean(df):
         plot_bgcolor=THEME['bg_chart'],
         paper_bgcolor=THEME['bg_chart']
     )
-
-    # Container visual movido para DENTRO da função
-    st.markdown("<div style='background:white; padding:20px; border-radius:12px; border:1px solid #e5e7eb;'>", unsafe_allow_html=True)
-    st.markdown("##### 🔥 Mapa de Calor Semanal")
+    # AQUI: Removi os st.markdown divs quebrados
     st.plotly_chart(fig, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+
+def plot_matrix(df_input, col_x, col_y, title):
+    df_clean = df_input[(df_input[col_x] != 'Não Informado') & (df_input[col_y] != 'Não Informado')]
+    if df_clean.empty: return
+
+    matrix = pd.crosstab(df_clean[col_y], df_clean[col_x])
+    matrix = matrix.loc[(matrix!=0).any(axis=1), (matrix!=0).any(axis=0)]
+    matrix['Total_Row'] = matrix.sum(axis=1)
+    matrix = matrix.sort_values('Total_Row', ascending=False).drop(columns='Total_Row')
+    col_sums = matrix.sum().sort_values(ascending=False).index
+    matrix = matrix[col_sums]
+
+    if not matrix.empty:
+        fig = px.imshow(matrix, text_auto=True, aspect="auto", color_continuous_scale='Reds', title=title)
+        fig.update_layout(height=500)
+        st.plotly_chart(fig, use_container_width=True)
+
+def render_reincidencia_charts(df_criticos):
+    c1, c2 = st.columns([2,1])
+    with c1:
+        st.markdown("**Top Motivos de Retorno**")
+        all_motivos = df_criticos.explode('Motivos_Unicos')
+        if not all_motivos.empty:
+            counts = all_motivos['Motivos_Unicos'].value_counts().reset_index()
+            counts.columns = ['Motivo', 'Volume']
+            counts['Porcentagem'] = (counts['Volume'] / counts['Volume'].sum() * 100).map('{:,.1f}%'.format)
+            
+            fig = px.bar(
+                counts.head(8).sort_values('Volume', ascending=True),
+                x='Volume', y='Motivo', orientation='h', text='Porcentagem', 
+                color='Volume', color_continuous_scale='Blues'
+            )
+            fig.update_traces(textposition='outside', marker_cornerradius=3)
+            fig.update_layout(height=350, coloraxis_showscale=False, yaxis_title=None, plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        st.info("💡 **Dica:** Use a tabela abaixo para ver o histórico.")
