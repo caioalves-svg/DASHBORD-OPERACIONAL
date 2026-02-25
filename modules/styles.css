@@ -58,7 +58,8 @@ h1, h2, h3, h4 {
 
 .header-title { font-size: 1.8rem; font-weight: 700; }
 
-[data-testid="stMetric"] {
+/* Aplica estilo apenas em metrics com conteúdo — evita caixas brancas vazias */
+[data-testid="stMetric"]:has([data-testid="stMetricValue"]) {
     background-color: white;
     padding: 15px;
     border-radius: 8px;
