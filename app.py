@@ -81,10 +81,9 @@ with col_main_2:
 st.subheader("⚡ Capacidade vs Realizado (TMA)")
 ui_components.render_capacity_scatter(df_filtered)
 
+# Títulos movidos para dentro dos gráficos via Plotly title
 col_ev1, col_ev2 = st.columns(2)
 with col_ev1:
-    st.subheader("📈 Fluxo Horário")
     ui_components.render_evolution_chart(df_filtered)
 with col_ev2:
-    st.subheader("🔥 Mapa de Calor")
     ui_components.render_heatmap_clean(df_filtered)
