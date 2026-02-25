@@ -1,55 +1,38 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* ===== REMOVE TODOS OS ESPAÇOS EM BRANCO ===== */
+/* ===== REMOVE ESPAÇOS EM BRANCO ===== */
 header[data-testid="stHeader"],
-header { 
-    display: none !important; 
-    height: 0 !important; 
+header {
+    display: none !important;
+    height: 0 !important;
 }
 
-#root > div:first-child { 
-    margin-top: 0 !important; 
-}
-
-.block-container { 
-    padding-top: 0.5rem !important; 
+.block-container {
+    padding-top: 0.5rem !important;
     padding-bottom: 1rem !important;
     margin-top: 0 !important;
-}
-
-.stApp > div:first-child {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
 }
 
 div[data-testid="stAppViewBlockContainer"] {
     padding-top: 0.5rem !important;
 }
 
-/* Remove gap entre colunas e elementos */
+/* Remove gap entre gráficos */
 div[data-testid="stHorizontalBlock"] {
     gap: 0.5rem !important;
 }
 
-/* Remove espaço acima dos subheaders */
-div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
-    gap: 0.25rem !important;
+/* Remove padding dos gráficos Plotly */
+div[data-testid="stPlotlyChart"] {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
 }
 
-/* Remove padding interno dos elementos plotly */
-div[data-testid="stPlotlyChart"] > div {
-    padding: 0 !important;
-}
-
-/* Remove espaço extra na sidebar */
+/* Sidebar: remove espaço extra no topo */
 section[data-testid="stSidebar"] > div:first-child {
     padding-top: 1rem !important;
 }
-
-section[data-testid="stSidebar"] hr {
-    margin: 0.5rem 0 !important;
-}
-/* ============================================= */
+/* ===================================== */
 
 .stApp {
     background-color: #f8f9fa;
