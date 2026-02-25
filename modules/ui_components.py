@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
 
-# Tema
+# CORES
 THEME = {'primary': '#6366f1', 'grid': '#e5e7eb'}
 
 def load_css():
@@ -47,26 +47,23 @@ def render_sidebar_filters(df_raw):
     if colaboradores: df = df[df['Colaborador'].isin(colaboradores)]
     return df, end
 
-# --- GRÁFICOS (TODOS COM FUNDO TRANSPARENTE) ---
+# --- GRÁFICOS ---
 
 def render_gauges(perc_sac, perc_pend):
-    # Função auxiliar para criar gauge transparente
     def create_gauge(value, title, color):
         fig = go.Figure(go.Indicator(
             mode = "gauge+number",
             value = min(value, 100),
-            title = {'text': title, 'font': {'size': 14, 'color': '#6b7280', 'family': 'Inter'}},
-            number = {'suffix': "%", 'font': {'size': 26, 'color': '#1f2937', 'family': 'Inter'}},
-            gauge = {
-                'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "rgba(0,0,0,0)"}, # Tick invisivel
-                'bar': {'color': color},
-                'bgcolor': "rgba(0,0,0,0)", # Fundo do gauge transparente
-                'borderwidth': 0,
-                'steps': [{'range': [0, 100], 'color': "#e5e7eb"}] # Cinza do fundo da barra
-            }
+            title = {'text': title, 'font': {'size': 14, 'color': '#6b7280'}},
+            number = {'suffix': "%", 'font': {'size': 26, 'color': '#1f2937'}},
+            gauge = {'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "rgba(0,0,0,0)"},
+                     'bar': {'color': color},
+                     'bgcolor': "rgba(0,0,0,0)",
+                     'borderwidth': 0,
+                     'steps': [{'range': [0, 100], 'color': "#f3f4f6"}]}
         ))
-        # paper_bgcolor='rgba(0,0,0,0)' é a chave para remover o quadrado branco
-        fig.update_layout(height=160, margin=dict(l=20, r=20, t=30, b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        # Margem ajustada para não cortar
+        fig.update_layout(height=180, margin=dict(l=20, r=20, t=40, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         return fig
 
     c1, c2 = st.columns(2)
@@ -88,7 +85,6 @@ def render_main_bar_chart(df):
     fig = px.bar(df_melt, y='Colaborador', x='Volume', color='Tipo', orientation='h', barmode='group',
                  color_discrete_map={'Bruto': '#c7d2fe', 'Liquido': '#6366f1'}, text='Volume')
     fig.update_traces(textposition='outside', marker_cornerradius=4)
-    # Fundo transparente
     fig.update_layout(height=400, xaxis=dict(showgrid=False), yaxis=dict(title=None), legend=dict(orientation="h", y=1.1, title=None),
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=0, b=0))
     st.plotly_chart(fig, use_container_width=True)
@@ -107,7 +103,6 @@ def render_capacity_scatter(df):
     fig.add_trace(go.Bar(x=df_tma['Colaborador'], y=df_tma['Capacidade'], name='Capacidade', marker_color='#a7f3d0', marker_line_color='#10b981', marker_line_width=1, text=df_tma['Capacidade'], textposition='outside'))
     fig.add_trace(go.Scatter(x=df_tma['Colaborador'], y=df_tma['mean'], mode='markers+lines', name='TMA Real', yaxis='y2', line=dict(color='#ef4444', width=3), marker=dict(size=8, color='white', line=dict(width=2, color='#ef4444'))))
     
-    # Fundo transparente
     fig.update_layout(height=350, yaxis=dict(title='Qtd', showgrid=True, gridcolor=THEME['grid']), yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False), xaxis=dict(showgrid=False),
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', legend=dict(orientation="h", y=1.1), margin=dict(l=0, r=0, t=30, b=0))
     st.plotly_chart(fig, use_container_width=True)
@@ -117,7 +112,6 @@ def render_evolution_chart(df):
     df_line = df.groupby('Hora_Cheia').size().reset_index(name='Volume').sort_values('Hora_Cheia')
     fig = px.area(df_line, x='Hora_Cheia', y='Volume', markers=True)
     fig.update_traces(line=dict(color='#8b5cf6', shape='spline'), fillcolor='rgba(139, 92, 246, 0.1)')
-    # Fundo transparente
     fig.update_layout(height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor=THEME['grid']), 
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=10, b=0))
     st.plotly_chart(fig, use_container_width=True)
@@ -129,7 +123,6 @@ def render_heatmap_clean(df):
     
     df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
     fig = px.density_heatmap(df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados', color_continuous_scale='Blues', text_auto=True)
-    # Fundo transparente
     fig.update_layout(height=300, coloraxis_showscale=False, xaxis=dict(title=None), yaxis=dict(title=None), 
                       margin=dict(l=0, r=0, t=0, b=0), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
     st.plotly_chart(fig, use_container_width=True)
