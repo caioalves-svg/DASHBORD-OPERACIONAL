@@ -1,0 +1,26 @@
+/* Container dos Cards de Métricas */
+div[data-testid="metric-container"] {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+}
+
+div[data-testid="metric-container"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Títulos das Seções */
+h1, h2, h3 {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #1f2937;
+}
+
+/* Ajuste da Barra Lateral */
+section[data-testid="stSidebar"] {
+    background-color: #f8f9fa;
+    border-right: 1px solid #e5e7eb;
+}
