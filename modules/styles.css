@@ -1,58 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* ===== REMOVE ESPAÇOS EM BRANCO ===== */
-header[data-testid="stHeader"],
-header {
+/* ===== RESET E LIMPEZA DE "FANTASMAS" ===== */
+header[data-testid="stHeader"] {
     display: none !important;
-    height: 0 !important;
 }
 
-/* AQUI FOI O AJUSTE DE MARGEM: Deixei mais espaçado (2rem em vez de 0.5rem) */
-.block-container {
-    padding-top: 2rem !important;
-    padding-bottom: 3rem !important;
-    margin-top: 0 !important;
-}
-
-div[data-testid="stAppViewBlockContainer"] {
-    padding-top: 2rem !important;
-}
-
-div[data-testid="stHorizontalBlock"] {
-    gap: 1rem !important;
-}
-
-div[data-testid="stPlotlyChart"] {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-}
-
-section[data-testid="stSidebar"] > div:first-child {
-    padding-top: 2rem !important;
-}
-
-/* ===== ANULA ESTILO EM DIVS VAZIAS ===== */
-div[data-testid="stMetric"]:empty,
-div[data-testid="column"] > div:empty,
-div[data-testid="stVerticalBlock"] > div:empty {
+/* Remove fundos brancos de containers vazios ou de carregamento */
+div[data-testid="stVerticalBlock"] > div:empty,
+div[data-testid="stVerticalBlock"] > div:has(div:empty),
+div[data-testid="stAppViewBlockContainer"] > div:empty {
     background: transparent !important;
     border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
+    box-shadow: none !important;
 }
-/* ======================================= */
 
+.block-container {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+}
+
+/* ===== ESTILO GERAL ===== */
 .stApp {
     background-color: #f8f9fa;
     font-family: 'Inter', sans-serif;
-}
-
-h1, h2, h3, h4 {
-    color: #1f2937 !important;
-    font-family: 'Inter', sans-serif !important;
-    font-weight: 700 !important;
 }
 
 .custom-header {
@@ -64,17 +34,24 @@ h1, h2, h3, h4 {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .header-title { font-size: 1.8rem; font-weight: 700; }
 
-/* Aplica estilo apenas em metrics com conteúdo */
-[data-testid="stMetric"]:has([data-testid="stMetricValue"]) {
-    background-color: white;
-    padding: 15px;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+/* Estilo dos Cards de Métricas (st.metric) */
+[data-testid="stMetric"] {
+    background-color: white !important;
+    padding: 15px !important;
+    border-radius: 10px !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+}
+
+/* Garante que o gráfico não tenha margem superior excessiva */
+div[data-testid="stPlotlyChart"] {
+    background-color: transparent !important;
+    margin-top: -10px !important;
 }
 
 section[data-testid="stSidebar"] {
