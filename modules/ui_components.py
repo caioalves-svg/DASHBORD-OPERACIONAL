@@ -88,14 +88,14 @@ def render_main_bar_chart(df):
     
     fig.update_traces(textposition='outside', marker_cornerradius=4)
     fig.update_layout(
-        title=dict(text="📊 Performance Individual", font=TITLE_FONT, x=0.01, y=0.98),
+        title=dict(text="📊 Performance Individual", font=TITLE_FONT, x=0.01, y=0.97),  # y ajustado
         height=450,
         xaxis=dict(showgrid=False), 
         yaxis=dict(title=None),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None),
         plot_bgcolor='rgba(0,0,0,0)', 
         paper_bgcolor='rgba(0,0,0,0)', 
-        margin=dict(l=10, r=10, t=90, b=10)
+        margin=dict(l=10, r=10, t=110, b=10)  # t aumentado de 90 → 110
     )
     st.plotly_chart(fig, use_container_width=True)
 
