@@ -55,14 +55,14 @@ def render_sidebar_filters(df_raw):
     if colaboradores: df = df[df['Colaborador'].isin(colaboradores)]
     return df, end
 
-def render_gauges(perc_sac, perc_pend):
+def render_gauges(perc_sac, perc_pend, realizado_sac=0, meta_sac=0, realizado_pend=0, meta_pend=0):
     def create_gauge(value, title, color):
         fig = go.Figure(go.Indicator(
-            mode = "gauge+number",
-            value = min(value, 100),
-            title = {'text': title, 'font': {'size': 15, 'color': '#6b7280'}},
-            number = {'suffix': "%", 'font': {'size': 24, 'color': '#1f2937'}},
-            gauge = {
+            mode="gauge+number",
+            value=min(value, 100),
+            title={'text': title, 'font': {'size': 15, 'color': '#6b7280'}},
+            number={'suffix': "%", 'font': {'size': 24, 'color': '#1f2937'}},
+            gauge={
                 'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "rgba(0,0,0,0)"},
                 'bar': {'color': color},
                 'bgcolor': "rgba(0,0,0,0)",
@@ -73,12 +73,26 @@ def render_gauges(perc_sac, perc_pend):
         fig.update_layout(height=180, margin=dict(l=30, r=30, t=50, b=10), paper_bgcolor='rgba(0,0,0,0)')
         return fig
 
+    def info_meta(realizado, meta, atingiu):
+        falta = max(0, int(meta) - int(realizado))
+        cor = "#10b981" if atingiu else "#ef4444"
+        icone = "✅" if atingiu else "🔴"
+        if atingiu:
+            texto = f"Feito: <b>{int(realizado)}</b> / Meta: <b>{int(meta)}</b> {icone}"
+        else:
+            texto = f"Feito: <b>{int(realizado)}</b> / Meta: <b>{int(meta)}</b> — Faltam: <b>{falta}</b> {icone}"
+        return f"<p style='text-align:center; font-size:13px; color:{cor}; margin-top:-15px; margin-bottom:5px;'>{texto}</p>"
+
     st.markdown("<h4 style='margin-bottom:-20px; color:#1f2937;'>🎯 Metas</h4>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        st.plotly_chart(create_gauge(perc_sac, "SAC", THEME['secondary'] if perc_sac >= 100 else THEME['primary']), use_container_width=True)
+        color_sac = THEME['secondary'] if perc_sac >= 100 else THEME['primary']
+        st.plotly_chart(create_gauge(perc_sac, "SAC", color_sac), use_container_width=True)
+        st.markdown(info_meta(realizado_sac, meta_sac, perc_sac >= 100), unsafe_allow_html=True)
     with c2:
-        st.plotly_chart(create_gauge(perc_pend, "Pendência", THEME['secondary'] if perc_pend >= 100 else "#f59e0b"), use_container_width=True)
+        color_pend = THEME['secondary'] if perc_pend >= 100 else "#f59e0b"
+        st.plotly_chart(create_gauge(perc_pend, "Pendência", color_pend), use_container_width=True)
+        st.markdown(info_meta(realizado_pend, meta_pend, perc_pend >= 100), unsafe_allow_html=True)
 
 def render_main_bar_chart(df):
     if df.empty: return st.info("Sem dados.")
@@ -109,10 +123,23 @@ def render_capacity_scatter(df):
     TEMPO_UTIL = (17.3 - 7.5) * 60 * 0.70
     df_tma['Capacidade'] = (TEMPO_UTIL / df_tma['mean']).fillna(0).astype(int)
     df_tma = df_tma.sort_values('Capacidade', ascending=False)
+    df_tma['TMA_Label'] = df_tma['mean'].round(1).astype(str)
     
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=df_tma['Colaborador'], y=df_tma['Capacidade'], name='Capacidade', marker_color='#d1fae5', marker_line_color=THEME['secondary'], marker_line_width=1, text=df_tma['Capacidade'], textposition='outside'))
-    fig.add_trace(go.Scatter(x=df_tma['Colaborador'], y=df_tma['mean'], mode='markers+lines', name='TMA Real', yaxis='y2', line=dict(color='#ef4444', width=3), marker=dict(size=8, color='white', line=dict(width=2, color='#ef4444'))))
+    fig.add_trace(go.Bar(
+        x=df_tma['Colaborador'], y=df_tma['Capacidade'], name='Capacidade',
+        marker_color='#d1fae5', marker_line_color=THEME['secondary'], marker_line_width=1,
+        text=df_tma['Capacidade'], textposition='outside'
+    ))
+    fig.add_trace(go.Scatter(
+        x=df_tma['Colaborador'], y=df_tma['mean'], mode='markers+lines+text',
+        name='TMA Real', yaxis='y2',
+        text=df_tma['TMA_Label'],
+        textposition='top center',
+        textfont=dict(size=11, color='#ef4444'),
+        line=dict(color='#ef4444', width=3),
+        marker=dict(size=8, color='white', line=dict(width=2, color='#ef4444'))
+    ))
     
     fig.update_layout(
         height=400,
@@ -128,8 +155,19 @@ def render_capacity_scatter(df):
 def render_evolution_chart(df):
     if df.empty: return
     df_line = df.groupby('Hora_Cheia').size().reset_index(name='Volume').sort_values('Hora_Cheia')
-    fig = px.area(df_line, x='Hora_Cheia', y='Volume', markers=True)
-    fig.update_traces(line=dict(color=THEME['primary'], shape='spline'), fillcolor='rgba(99, 102, 241, 0.1)')
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df_line['Hora_Cheia'], y=df_line['Volume'],
+        mode='lines+markers+text',
+        text=df_line['Volume'],
+        textposition='top center',
+        textfont=dict(size=11, color=THEME['primary']),
+        line=dict(color=THEME['primary'], width=3, shape='spline'),
+        fill='tozeroy',
+        fillcolor='rgba(99, 102, 241, 0.1)',
+        marker=dict(size=6, color=THEME['primary'])
+    ))
     fig.update_layout(
         height=320,
         xaxis=dict(showgrid=False, title=None),
@@ -145,11 +183,19 @@ def render_heatmap_clean(df):
     df_heat = df[df['Dia_Semana'].isin(dias)]
     if df_heat.empty: return
     df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
-    fig = px.density_heatmap(df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados', color_continuous_scale='Purples', text_auto=True)
+    fig = px.density_heatmap(df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados',
+                              color_continuous_scale='Purples', text_auto=True)
     fig.update_layout(
-        height=320, coloraxis_showscale=False,
+        height=320,
+        coloraxis_showscale=True,
+        coloraxis_colorbar=dict(
+            title="Chamados",
+            thickness=12,
+            len=0.8,
+            tickfont=dict(size=10)
+        ),
         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=10, r=10, t=20, b=10)
+        margin=dict(l=10, r=60, t=20, b=10)
     )
     st.markdown(f"<p style='{CHART_TITLE_STYLE}'>🔥 Mapa de Calor Semanal</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
