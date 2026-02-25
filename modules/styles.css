@@ -1,134 +1,109 @@
-/* IMPORTANDO FONTE INTER */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* VARIÁVEIS GLOBAIS - PALETA PREMIUM */
 :root {
-    --primary: #4F46E5;       /* Indigo 600 */
-    --primary-light: #EEF2FF; /* Indigo 50 */
-    --success: #10B981;       /* Emerald 500 */
-    --warning: #F59E0B;       /* Amber 500 */
-    --danger: #EF4444;        /* Red 500 */
-    --text-dark: #111827;     /* Gray 900 */
-    --text-gray: #6B7280;     /* Gray 500 */
-    --bg-main: #F9FAFB;       /* Gray 50 */
-    --card-bg: #FFFFFF;
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --primary: #6366f1;       /* Indigo 500 */
+    --secondary: #10b981;     /* Emerald 500 */
+    --bg-page: #f3f4f6;       /* Gray 100 */
+    --bg-card: #ffffff;
+    --text-main: #111827;
+    --text-sub: #6b7280;
 }
 
-/* APLICANDO AO STREAMLIT */
-html, body, [class*="css"] {
+/* RESET E BASE */
+.stApp {
+    background-color: var(--bg-page);
     font-family: 'Inter', sans-serif;
-    color: var(--text-dark);
-    background-color: var(--bg-main);
 }
 
-/* SIDEBAR ELEGANTE */
-section[data-testid="stSidebar"] {
-    background-color: #FFFFFF;
-    border-right: 1px solid #E5E7EB;
-}
-
-/* TÍTULOS */
 h1, h2, h3 {
+    color: var(--text-main) !important;
+    font-family: 'Inter', sans-serif !important;
     font-weight: 700 !important;
-    letter-spacing: -0.025em;
-    color: var(--text-dark);
 }
 
-h2 {
-    font-size: 1.5rem !important;
-    margin-bottom: 1.5rem !important;
+/* HEADER CUSTOMIZADO */
+.custom-header {
+    background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
+    padding: 1.5rem 2rem;
+    border-radius: 16px;
+    color: white;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-/* CUSTOM CARDS (Substituindo Metrics Padrão) */
-.kpi-card {
-    background-color: var(--card-bg);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: var(--shadow-sm);
-    border: 1px solid #F3F4F6;
-    transition: all 0.3s ease;
+.header-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.header-subtitle {
+    opacity: 0.9;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+/* CARDS E CONTAINERS */
+.metric-container {
+    background-color: var(--bg-card);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(229, 231, 235, 0.5);
     height: 100%;
+    transition: transform 0.2s;
 }
 
-.kpi-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--primary-light);
+.metric-container:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.kpi-title {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-gray);
+.metric-label {
+    font-size: 0.85rem;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 8px;
+    color: var(--text-sub);
+    margin-bottom: 0.5rem;
 }
 
-.kpi-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-dark);
-    margin-bottom: 4px;
+.metric-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.025em;
 }
 
-.kpi-delta {
-    font-size: 0.875rem;
-    font-weight: 500;
-    display: flex;
+.metric-delta {
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
-}
-
-.delta-pos { color: var(--success); background: #ECFDF5; padding: 2px 8px; border-radius: 99px; width: fit-content;}
-.delta-neg { color: var(--danger); background: #FEF2F2; padding: 2px 8px; border-radius: 99px; width: fit-content;}
-.delta-neu { color: var(--text-gray); background: #F3F4F6; padding: 2px 8px; border-radius: 99px; width: fit-content;}
-
-/* ABAS (TABS) */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 24px;
-    background-color: transparent;
-}
-
-.stTabs [data-baseweb="tab"] {
-    height: 50px;
-    white-space: pre-wrap;
-    background-color: transparent;
-    border-radius: 0;
-    border-bottom: 2px solid transparent;
-    color: var(--text-gray);
-    font-weight: 500;
-}
-
-.stTabs [aria-selected="true"] {
-    background-color: transparent;
-    border-bottom: 2px solid var(--primary);
-    color: var(--primary);
-    font-weight: 700;
-}
-
-/* MELHORIA NA TABELA */
-[data-testid="stDataFrame"] {
-    border: 1px solid #E5E7EB;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-}
-
-/* AJUSTE BOTÃO */
-.stButton button {
-    background-color: var(--primary);
-    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
     font-weight: 600;
-    border-radius: 8px;
-    border: none;
-    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
-    transition: 0.2s;
+    margin-top: 8px;
 }
 
-.stButton button:hover {
-    background-color: #4338CA; /* Indigo 700 */
-    box-shadow: 0 6px 8px -1px rgba(79, 70, 229, 0.3);
+.delta-positive { background-color: #ecfdf5; color: #059669; }
+.delta-negative { background-color: #fef2f2; color: #dc2626; }
+.delta-neutral { background-color: #f3f4f6; color: #4b5563; }
+
+/* REMOVER PADDING PADRÃO DO STREAMLIT */
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* ESTILIZAÇÃO DA TABELA */
+[data-testid="stDataFrame"] {
+    border: none;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+/* SIDEBAR */
+section[data-testid="stSidebar"] {
+    background-color: #ffffff;
+    border-right: 1px solid #e5e7eb;
 }
