@@ -44,13 +44,43 @@ ui_components.render_header()
 aba1, aba2 = st.tabs(["📊 Operacional", "🛒 Pedidos & Portal"])
 
 with aba1:
+    media_meta = (perc_sac + perc_pend) / 2
+    meta_color = "#10b981" if media_meta >= 100 else ("#f59e0b" if media_meta >= 75 else "#ef4444")
+    dup_color  = "#10b981" if taxa_duplicidade < 15 else "#ef4444"
+
+    kpi_style = """
+        background: white;
+        border-radius: 12px;
+        padding: 18px 22px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        border-left: 4px solid {color};
+        height: 100%;
+    """
     c1, c2, c3, c4 = st.columns(4)
-    with c1: st.metric("Total Registros", f"{total_bruto}")
-    with c2: st.metric("Atendimentos Reais", f"{total_liquido}", "Produtividade")
-    with c3: st.metric("Taxa Duplicidade", f"{taxa_duplicidade:.1f}%", "-Alvo <15%", delta_color="inverse")
-    with c4:
-        media_meta = (perc_sac + perc_pend) / 2
-        st.metric("Meta Global", f"{media_meta:.1f}%", "Média Setores")
+    c1.markdown(f"""
+        <div style="{kpi_style.format(color='#6366f1')}">
+            <p style="margin:0;font-size:12px;color:#6b7280;font-weight:500;text-transform:uppercase;letter-spacing:.05em;">📋 Total Registros</p>
+            <p style="margin:4px 0 2px;font-size:32px;font-weight:700;color:#6366f1;">{total_bruto:,}</p>
+            <p style="margin:0;font-size:12px;color:#9ca3af;">entradas no período</p>
+        </div>""", unsafe_allow_html=True)
+    c2.markdown(f"""
+        <div style="{kpi_style.format(color='#10b981')}">
+            <p style="margin:0;font-size:12px;color:#6b7280;font-weight:500;text-transform:uppercase;letter-spacing:.05em;">✅ Atendimentos Reais</p>
+            <p style="margin:4px 0 2px;font-size:32px;font-weight:700;color:#10b981;">{int(total_liquido):,}</p>
+            <p style="margin:0;font-size:12px;color:#9ca3af;">episódios únicos</p>
+        </div>""", unsafe_allow_html=True)
+    c3.markdown(f"""
+        <div style="{kpi_style.format(color=dup_color)}">
+            <p style="margin:0;font-size:12px;color:#6b7280;font-weight:500;text-transform:uppercase;letter-spacing:.05em;">🔁 Taxa Duplicidade</p>
+            <p style="margin:4px 0 2px;font-size:32px;font-weight:700;color:{dup_color};">{taxa_duplicidade:.1f}%</p>
+            <p style="margin:0;font-size:12px;color:#9ca3af;">alvo: abaixo de 15%</p>
+        </div>""", unsafe_allow_html=True)
+    c4.markdown(f"""
+        <div style="{kpi_style.format(color=meta_color)}">
+            <p style="margin:0;font-size:12px;color:#6b7280;font-weight:500;text-transform:uppercase;letter-spacing:.05em;">🎯 Meta Global</p>
+            <p style="margin:4px 0 2px;font-size:32px;font-weight:700;color:{meta_color};">{media_meta:.1f}%</p>
+            <p style="margin:0;font-size:12px;color:#9ca3af;">média SAC + Pendência</p>
+        </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
