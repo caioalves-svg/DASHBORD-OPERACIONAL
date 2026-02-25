@@ -4,10 +4,10 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
 
-# CORES
+# TEMA VISUAL DOS GRÁFICOS
 THEME = {
     'primary': '#6366f1',
-    'bg_chart': 'rgba(0,0,0,0)',
+    'bg_chart': 'rgba(0,0,0,0)', # Transparente para não criar caixas
     'grid': '#e5e7eb'
 }
 
@@ -64,7 +64,7 @@ def render_sidebar_filters(df_raw):
     if colaboradores: df = df[df['Colaborador'].isin(colaboradores)]
     return df, end
 
-# --- GRÁFICOS PUROS (SEM WRAPPERS) ---
+# --- GRÁFICOS PUROS (SEM HTML WRAPPERS) ---
 
 def render_gauges(perc_sac, perc_pend):
     def create_gauge(value, title, color):
