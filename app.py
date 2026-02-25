@@ -69,19 +69,17 @@ with c4:
     media_meta = (perc_sac + perc_pend) / 2
     st.metric("Meta Global", f"{media_meta:.1f}%", "Média Setores")
 
-# --- GRÁFICOS ---
+# --- GRÁFICOS (Layout Grid) ---
+st.markdown("<br>", unsafe_allow_html=True)
+
 col_main_1, col_main_2 = st.columns([2, 1])
 with col_main_1:
-    st.subheader("📊 Performance Individual")
     ui_components.render_main_bar_chart(df_filtered)
 with col_main_2:
-    st.subheader("🎯 Metas")
     ui_components.render_gauges(perc_sac, perc_pend)
 
-st.subheader("⚡ Capacidade vs Realizado (TMA)")
 ui_components.render_capacity_scatter(df_filtered)
 
-# Títulos movidos para dentro dos gráficos via Plotly title
 col_ev1, col_ev2 = st.columns(2)
 with col_ev1:
     ui_components.render_evolution_chart(df_filtered)
