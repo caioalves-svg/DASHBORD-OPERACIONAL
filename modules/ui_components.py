@@ -4,281 +4,250 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
 
-# CORES GLOBAIS DO DASHBOARD
-COLOR_PALETTE = {
-    'primary': '#4F46E5', # Indigo
-    'secondary': '#10B981', # Emerald
-    'accent': '#F59E0B', # Amber
-    'danger': '#EF4444', # Red
-    'neutral': '#6B7280', # Gray
+# PALETA DE CORES MODERNA (SaaS Style)
+THEME = {
+    'primary': '#6366f1',    # Indigo
+    'secondary': '#10b981',  # Emerald
+    'bg_chart': 'rgba(0,0,0,0)',
+    'text': '#1f2937',
+    'grid': '#f3f4f6'
 }
 
 def load_css():
-    """Carrega o arquivo CSS de estilos."""
     try:
         with open("modules/styles.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except FileNotFoundError:
-        st.warning("Arquivo styles.css não encontrado. O visual será o padrão.")
+        st.warning("CSS não encontrado.")
 
-# --- COMPONENTE DE CARD PERSONALIZADO (HTML) ---
-def kpi_card(title, value, delta=None, delta_color="neutral", icon="📊"):
+# --- COMPONENTE DE HEADER ---
+def render_header():
+    st.markdown("""
+        <div class="custom-header">
+            <div>
+                <div class="header-title">Monitoramento Operacional</div>
+                <div class="header-subtitle">Performance em Tempo Real • Logística & SAC</div>
+            </div>
+            <div style="font-size: 2rem;">🚛</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+# --- CARD KPI MODERNO ---
+def kpi_card_new(title, value, delta=None, delta_type="neutral", icon="📊"):
     """
-    Renderiza um card HTML estilizado.
-    delta_color: 'normal' (verde), 'inverse' (vermelho), 'neutral' (cinza)
+    delta_type: 'positive', 'negative', 'neutral'
     """
-    
-    # Lógica de cor do delta
-    css_class = "delta-neu"
-    if delta_color == "normal": css_class = "delta-pos"
-    elif delta_color == "inverse": css_class = "delta-neg"
-    
-    delta_html = f"<div class='kpi-delta {css_class}'>{delta}</div>" if delta else ""
+    delta_html = ""
+    if delta:
+        delta_html = f"<div class='metric-delta delta-{delta_type}'>{delta}</div>"
     
     html = f"""
-    <div class="kpi-card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="kpi-title">{title}</div>
-            <div style="font-size:1.2rem; opacity:0.5;">{icon}</div>
+    <div class="metric-container">
+        <div style="display:flex; justify-content:space-between;">
+            <div class="metric-label">{title}</div>
+            <div style="opacity:0.6;">{icon}</div>
         </div>
-        <div class="kpi-value">{value}</div>
+        <div class="metric-value">{value}</div>
         {delta_html}
     </div>
     """
     st.markdown(html, unsafe_allow_html=True)
 
-# --- FUNÇÕES DE RENDERIZAÇÃO ---
-
+# --- FILTROS ---
 def render_sidebar_filters(df_raw):
-    st.sidebar.markdown("### 🎛️ Filtros Operacionais")
+    st.sidebar.markdown("### 🎛️ Controles")
     
     min_date = df_raw['Data'].min().date()
-    # Garante que não quebre se a planilha estiver vazia ou com datas estranhas
-    try:
-        max_val_data = df_raw['Data'].max().date()
-    except:
-        max_val_data = datetime.now().date()
-        
-    max_date = max(max_val_data, datetime.now().date())
+    max_date = max(df_raw['Data'].max().date(), datetime.now().date())
     today = datetime.now().date()
+    
+    # Padrão: Hoje
+    default_val = [today, today] if today >= min_date else [min_date, min_date]
 
-    # Lógica de dia atual
-    default_val = [min_date, min_date] if today < min_date else [today, today]
-
-    date_range = st.sidebar.date_input("Período de Análise", value=default_val, min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
+    date_range = st.sidebar.date_input("Período", value=default_val, min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
     
     if isinstance(date_range, (list, tuple)):
-        if len(date_range) == 2:
-            start, end = date_range
-        elif len(date_range) == 1:
-            start, end = date_range[0], date_range[0]
-        else:
-            start, end = today, today
+        start, end = (date_range[0], date_range[0]) if len(date_range) == 1 else date_range
     else:
         start, end = date_range, date_range
 
     st.sidebar.markdown("---")
     
-    # Filtros com chaves únicas
     setores = st.sidebar.multiselect("Setor", options=sorted(df_raw['Setor'].unique())) if 'Setor' in df_raw.columns else []
     colaboradores = st.sidebar.multiselect("Colaborador", options=sorted(df_raw['Colaborador'].unique()))
-    portais = st.sidebar.multiselect("Portal", options=sorted(df_raw['Portal'].unique()))
-    transportadoras = st.sidebar.multiselect("Transportadora", options=sorted([t for t in df_raw['Transportadora'].unique() if t not in ['-', 'Não Informado']]))
-
-    # Aplica Filtros
+    
     df = df_raw.copy()
     df = df[(df['Data'].dt.date >= start) & (df['Data'].dt.date <= end)]
     if setores: df = df[df['Setor'].isin(setores)]
     if colaboradores: df = df[df['Colaborador'].isin(colaboradores)]
-    if portais: df = df[df['Portal'].isin(portais)]
-    if transportadoras: df = df[df['Transportadora'].isin(transportadoras)]
 
     return df, end
 
-def render_kpis(df, df_metas, end_date):
-    total_bruto = df.shape[0]
-    total_liquido = df['Eh_Novo_Episodio'].sum()
-    taxa_duplicidade = ((total_bruto - total_liquido) / total_bruto * 100) if total_bruto > 0 else 0
+# --- GRÁFICOS AVANÇADOS ---
 
-    # Layout de Cards HTML
-    c1, c2, c3 = st.columns(3)
-    with c1: kpi_card("Total Registros", f"{total_bruto}", icon="📦")
-    with c2: kpi_card("Atendimentos Reais (2h)", f"{total_liquido}", icon="✅")
-    with c3: kpi_card("Taxa de Duplicidade", f"{taxa_duplicidade:.1f}%", delta="Alvo: < 15%", delta_color="inverse", icon="⚠️")
-
-    st.markdown("---")
-    return total_liquido
-
-def render_productivity_charts(df):
-    st.subheader("1. Volume de Atendimento")
-    st.caption("Comparativo entre Total de Registros (Bruto) e Atendimentos Reais (Líquido)")
+def render_gauges(perc_sac, perc_pend):
+    """Renderiza velocímetros para as metas"""
     
-    if df.empty:
-        st.info("Sem dados para exibir no período selecionado.")
-        return
+    def create_gauge(value, title, color):
+        fig = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = min(value, 100), # Trava em 100 visualmente
+            title = {'text': title, 'font': {'size': 14, 'color': '#6b7280'}},
+            number = {'suffix': "%", 'font': {'size': 26, 'color': '#1f2937'}},
+            gauge = {
+                'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "white"},
+                'bar': {'color': color},
+                'bgcolor': "white",
+                'borderwidth': 2,
+                'bordercolor': "#f3f4f6",
+                'steps': [
+                    {'range': [0, 100], 'color': "#f3f4f6"}
+                ],
+            }
+        ))
+        fig.update_layout(height=160, margin=dict(l=20, r=20, t=30, b=10), paper_bgcolor='rgba(0,0,0,0)')
+        return fig
 
+    c1, c2 = st.columns(2)
+    with c1:
+        color_sac = "#10b981" if perc_sac >= 100 else "#6366f1"
+        st.plotly_chart(create_gauge(perc_sac, "Meta SAC", color_sac), use_container_width=True)
+        # Pequeno texto explicativo abaixo
+        st.caption(f"Status: {'✅ Batida' if perc_sac >= 100 else '⏳ Em andamento'}")
+        
+    with c2:
+        color_pend = "#10b981" if perc_pend >= 100 else "#f59e0b"
+        st.plotly_chart(create_gauge(perc_pend, "Meta Pendência", color_pend), use_container_width=True)
+        st.caption(f"Status: {'✅ Batida' if perc_pend >= 100 else '⏳ Em andamento'}")
+
+def render_main_bar_chart(df):
+    """Gráfico de barras horizontal limpo e moderno"""
+    if df.empty: return
+    
     df_vol = df.groupby('Colaborador').agg(
         Bruto=('Data', 'count'),
-        Liquido=('Eh_Novo_Episodio', 'sum'),
-        Erros_CRM=('Motivo_CRM', lambda x: x.isin(['SEM ABERTURA DE CRM', 'Não Informado']).sum())
+        Liquido=('Eh_Novo_Episodio', 'sum')
     ).reset_index().sort_values('Liquido', ascending=True)
     
-    df_melt = df_vol.melt(id_vars=['Colaborador', 'Erros_CRM'], value_vars=['Bruto', 'Liquido'], var_name='Métrica', value_name='Volume')
-    max_vol = df_melt['Volume'].max()
+    # Transforma para long format
+    df_melt = df_vol.melt(id_vars='Colaborador', var_name='Tipo', value_name='Volume')
     
-    if pd.isna(max_vol) or max_vol == 0: max_vol = 10
-
-    fig = px.bar(df_melt, y='Colaborador', x='Volume', color='Métrica', barmode='group', orientation='h',
-                 color_discrete_map={'Bruto': '#FCD34D', 'Liquido': COLOR_PALETTE['primary']}, 
-                 text='Volume',
-                 hover_data={'Erros_CRM': True, 'Métrica': True, 'Volume': True, 'Colaborador': False})
+    fig = px.bar(
+        df_melt, y='Colaborador', x='Volume', color='Tipo', orientation='h', barmode='group',
+        color_discrete_map={'Bruto': '#e0e7ff', 'Liquido': '#6366f1'}, # Indigo claro e escuro
+        text='Volume'
+    )
     
-    fig.update_traces(textposition='outside', marker_line_width=0, opacity=0.9)
+    fig.update_traces(textposition='outside', marker_cornerradius=4)
     fig.update_layout(
-        height=450, 
-        margin=dict(r=50, l=0, t=0, b=0), 
-        xaxis=dict(range=[0, max_vol * 1.15], showgrid=False),
-        yaxis=dict(showgrid=False),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        legend=dict(orientation="h", y=-0.15, title=None)
+        height=400,
+        xaxis=dict(showgrid=False, title=None),
+        yaxis=dict(title=None, tickfont=dict(size=13)),
+        legend=dict(orientation="h", y=1.1, title=None),
+        plot_bgcolor=THEME['bg_chart'],
+        paper_bgcolor=THEME['bg_chart'],
+        margin=dict(l=0, r=0, t=0, b=0)
     )
     st.plotly_chart(fig, use_container_width=True)
 
-def render_capacity_chart(df, df_metas, perc_sac, realized_sac, meta_sac, cor_sac, perc_pend, realized_pend, meta_pend, cor_pend):
+def render_capacity_scatter(df):
+    """Gráfico de Capacidade estilo 'Lollipop'"""
+    if df.empty: return
     
-    # Cards de Meta Estilizados
-    mc1, mc2 = st.columns(2)
-    with mc1: 
-        d_color = "normal" if cor_sac == "normal" else "inverse"
-        kpi_card("Meta SAC (Projeção)", f"{perc_sac:.1f}%", delta=f"{realized_sac}/{meta_sac} Realizados", delta_color=d_color, icon="🎧")
-    with mc2:
-        d_color = "normal" if cor_pend == "normal" else "inverse"
-        kpi_card("Meta Pendência (Projeção)", f"{perc_pend:.1f}%", delta=f"{realized_pend}/{meta_pend} Realizados", delta_color=d_color, icon="⏳")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.subheader("2. Projeção Individual (Meta vs Real)")
-    
-    if df.empty:
-        st.info("Sem dados para calcular capacidade.")
-        return
-
     df_tma = df.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
-    df_tma.columns = ['Colaborador', 'TMA_Medio', 'Amostra']
-    df_tma = df_tma[df_tma['Amostra'] > 5] 
+    df_tma = df_tma[df_tma['Amostra'] > 5]
     
     # 07:30 a 17:18 = 9.8h -> 588 min * 0.7 = 411.6
     TEMPO_UTIL = (17.3 - 7.5) * 60 * 0.70
+    df_tma['Capacidade'] = (TEMPO_UTIL / df_tma['mean']).fillna(0).astype(int)
+    df_tma = df_tma.sort_values('Capacidade', ascending=False)
     
-    df_tma['Capacidade_Diaria'] = (TEMPO_UTIL / df_tma['TMA_Medio']).fillna(0).astype(int)
-    df_tma = df_tma.sort_values('Capacidade_Diaria', ascending=False)
-    max_cap = df_tma['Capacidade_Diaria'].max() if not df_tma.empty else 100
-
     fig = go.Figure()
-    # Barra suave
+    
+    # Barra de Fundo (Capacidade)
     fig.add_trace(go.Bar(
-        x=df_tma['Colaborador'], 
-        y=df_tma['Capacidade_Diaria'], 
-        name='Capacidade Projetada', 
-        marker_color='#10B981', # Emerald Green
-        text=df_tma['Capacidade_Diaria'], 
+        x=df_tma['Colaborador'], y=df_tma['Capacidade'],
+        name='Capacidade Projetada',
+        marker_color='#d1fae5', # Verde bem claro
+        marker_line_color='#10b981',
+        marker_line_width=1,
+        text=df_tma['Capacidade'],
         textposition='outside'
     ))
     
-    # Linha elegante
+    # Linha de TMA
     fig.add_trace(go.Scatter(
-        x=df_tma['Colaborador'], 
-        y=df_tma['TMA_Medio'], 
-        mode='lines+markers+text', 
-        name='TMA Atual (min)', 
-        marker=dict(color='#EF4444', size=10, line=dict(width=2, color='white')),
-        line=dict(color='#EF4444', width=3, shape='spline'),
-        text=df_tma['TMA_Medio'].apply(lambda x: f"{x:.1f}'"), 
-        textposition='top center', 
-        yaxis='y2'
+        x=df_tma['Colaborador'], y=df_tma['mean'],
+        mode='markers+lines',
+        name='TMA Real (min)',
+        yaxis='y2',
+        line=dict(color='#ef4444', width=3),
+        marker=dict(size=8, color='white', line=dict(width=2, color='#ef4444'))
     ))
     
     fig.update_layout(
-        height=450,
-        yaxis=dict(title='Capacidade', range=[0, max_cap * 1.3], showgrid=True, gridcolor='#F3F4F6'),
+        height=350,
+        yaxis=dict(title='Qtd Atendimentos', showgrid=True, gridcolor=THEME['grid']),
         yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False),
         xaxis=dict(showgrid=False),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        legend=dict(orientation="h", y=-0.2),
-        margin=dict(t=40)
+        plot_bgcolor=THEME['bg_chart'],
+        paper_bgcolor=THEME['bg_chart'],
+        legend=dict(orientation="h", y=1.1),
+        margin=dict(l=0, r=0, t=30, b=0)
     )
     st.plotly_chart(fig, use_container_width=True)
 
-def render_heatmap(df):
-    st.subheader("3. Mapa de Calor (Pressão Operacional)")
-    dias_uteis = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira']
-    df_heat = df[df['Dia_Semana'].isin(dias_uteis)]
+def render_evolution_chart(df):
+    """NOVO: Gráfico de Linha por Hora"""
+    if df.empty: return
     
-    if not df_heat.empty:
-        df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
-        
-        # CORREÇÃO AQUI: Mudamos 'ygmnbu' para 'Viridis' (que é seguro)
-        fig_heat = px.density_heatmap(
-            df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados', 
-            category_orders={"Dia_Semana": dias_uteis}, 
-            color_continuous_scale='Viridis', 
-            text_auto=True
-        )
-        fig_heat.update_layout(
-            height=400,
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=0, r=0, b=0, t=0)
-        )
-        st.plotly_chart(fig_heat, use_container_width=True)
-
-def render_reincidencia_charts(df_criticos):
-    c1, c2 = st.columns([2,1])
-    with c1:
-        st.markdown("**Top Motivos de Retorno**")
-        all_motivos = df_criticos.explode('Motivos_Unicos')
-        if not all_motivos.empty:
-            counts = all_motivos['Motivos_Unicos'].value_counts().reset_index()
-            counts.columns = ['Motivo', 'Volume']
-            counts['Porcentagem'] = (counts['Volume'] / counts['Volume'].sum() * 100).map('{:,.1f}%'.format)
-            
-            fig = px.bar(
-                counts.head(8).sort_values('Volume', ascending=True),
-                x='Volume', y='Motivo', orientation='h', text='Porcentagem', 
-                color='Volume', color_continuous_scale='Blues'
-            )
-            fig.update_traces(textposition='outside')
-            fig.update_layout(
-                height=350, 
-                coloraxis_showscale=False, 
-                yaxis_title=None,
-                plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=True, gridcolor='#F3F4F6')
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    with c2:
-        st.info("💡 **Dica:** Use a tabela abaixo para ver o histórico cronológico de cada pedido crítico.")
-
-def plot_matrix(df_input, col_x, col_y, title):
-    """Função para plotar as matrizes de Causa Raiz."""
-    df_clean = df_input[(df_input[col_x] != 'Não Informado') & (df_input[col_y] != 'Não Informado')]
+    st.markdown("##### 📈 Fluxo Horário")
     
-    if df_clean.empty:
-        st.warning(f"Sem dados suficientes para {title}")
-        return
-
-    matrix = pd.crosstab(df_clean[col_y], df_clean[col_x])
-    matrix = matrix.loc[(matrix!=0).any(axis=1), (matrix!=0).any(axis=0)]
+    df_line = df.groupby('Hora_Cheia').size().reset_index(name='Volume')
     
-    matrix['Total_Row'] = matrix.sum(axis=1)
-    matrix = matrix.sort_values('Total_Row', ascending=False)
-    matrix = matrix.drop(columns='Total_Row')
+    fig = px.area(
+        df_line, x='Hora_Cheia', y='Volume',
+        line_shape='spline', # Curva suave
+        markers=True
+    )
     
-    col_sums = matrix.sum().sort_values(ascending=False).index
-    matrix = matrix[col_sums]
+    fig.update_traces(
+        line_color='#8b5cf6', # Roxo
+        fill_color='rgba(139, 92, 246, 0.1)' # Preenchimento transparente
+    )
+    
+    fig.update_layout(
+        height=250,
+        xaxis=dict(showgrid=False, title=None),
+        yaxis=dict(showgrid=True, gridcolor=THEME['grid'], title=None),
+        plot_bgcolor=THEME['bg_chart'],
+        paper_bgcolor=THEME['bg_chart'],
+        margin=dict(l=0, r=0, t=10, b=0)
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-    if not matrix.empty:
-        fig = px.imshow(matrix, text_auto=True, aspect="auto", color_continuous_scale='Reds', title=title)
-        fig.update_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
+def render_heatmap_clean(df):
+    st.markdown("##### 🔥 Mapa de Calor Semanal")
+    dias = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira']
+    df_heat = df[df['Dia_Semana'].isin(dias)]
+    
+    if df_heat.empty: return
+    
+    df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Chamados')
+    
+    fig = px.density_heatmap(
+        df_grp, x='Dia_Semana', y='Hora_Cheia', z='Chamados',
+        color_continuous_scale='Blues',
+        text_auto=True
+    )
+    
+    fig.update_layout(
+        height=300,
+        coloraxis_showscale=False,
+        xaxis=dict(title=None),
+        yaxis=dict(title=None),
+        margin=dict(l=0, r=0, t=0, b=0),
+        plot_bgcolor=THEME['bg_chart'],
+        paper_bgcolor=THEME['bg_chart']
+    )
+    st.plotly_chart(fig, use_container_width=True)
