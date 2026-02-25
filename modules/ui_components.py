@@ -13,6 +13,21 @@ def load_css():
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except:
         pass
+    
+    # Remove divs vazias com estilo inline geradas pelo Streamlit
+    st.markdown("""
+        <script>
+        function removeEmptyDivs() {
+            document.querySelectorAll('div[style*="border-radius: 12px"]').forEach(el => {
+                if (el.children.length === 0 || el.innerHTML.trim() === '') {
+                    el.style.cssText = '';
+                }
+            });
+        }
+        setTimeout(removeEmptyDivs, 500);
+        setTimeout(removeEmptyDivs, 1500);
+        </script>
+    """, unsafe_allow_html=True)
 
 def render_header():
     st.markdown("""
