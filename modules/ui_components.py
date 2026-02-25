@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
 
-# CORES
+# TEMA
 THEME = {'primary': '#6366f1', 'grid': '#e5e7eb'}
 
 def load_css():
@@ -60,9 +60,8 @@ def render_gauges(perc_sac, perc_pend):
                      'bar': {'color': color},
                      'bgcolor': "rgba(0,0,0,0)",
                      'borderwidth': 0,
-                     'steps': [{'range': [0, 100], 'color': "#f3f4f6"}]}
+                     'steps': [{'range': [0, 100], 'color': "#e5e7eb"}]}
         ))
-        # Margem ajustada para não cortar
         fig.update_layout(height=180, margin=dict(l=20, r=20, t=40, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         return fig
 
