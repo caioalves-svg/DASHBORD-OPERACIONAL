@@ -58,7 +58,13 @@ def render_sidebar_filters(df_raw):
     st.sidebar.markdown("### 🎛️ Controles")
     
     min_date = df_raw['Data'].min().date()
-    max_date = max(df_raw['Data'].max().date(), datetime.now().date())
+    # Tratamento de erro caso a planilha esteja vazia ou data inválida
+    try:
+        max_val_data = df_raw['Data'].max().date()
+    except:
+        max_val_data = datetime.now().date()
+
+    max_date = max(max_val_data, datetime.now().date())
     today = datetime.now().date()
     
     # Padrão: Hoje
@@ -112,7 +118,6 @@ def render_gauges(perc_sac, perc_pend):
     with c1:
         color_sac = "#10b981" if perc_sac >= 100 else "#6366f1"
         st.plotly_chart(create_gauge(perc_sac, "Meta SAC", color_sac), use_container_width=True)
-        # Pequeno texto explicativo abaixo
         st.caption(f"Status: {'✅ Batida' if perc_sac >= 100 else '⏳ Em andamento'}")
         
     with c2:
@@ -122,7 +127,9 @@ def render_gauges(perc_sac, perc_pend):
 
 def render_main_bar_chart(df):
     """Gráfico de barras horizontal limpo e moderno"""
-    if df.empty: return
+    if df.empty: 
+        st.info("Sem dados para o período.")
+        return
     
     df_vol = df.groupby('Colaborador').agg(
         Bruto=('Data', 'count'),
@@ -154,7 +161,13 @@ def render_capacity_scatter(df):
     """Gráfico de Capacidade estilo 'Lollipop'"""
     if df.empty: return
     
+    # CORREÇÃO AQUI: Renomear as colunas ANTES de filtrar
     df_tma = df.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
+    
+    # Renomeia para garantir que 'Amostra' exista
+    df_tma.columns = ['Colaborador', 'mean', 'Amostra']
+    
+    # Agora sim podemos filtrar
     df_tma = df_tma[df_tma['Amostra'] > 5]
     
     # 07:30 a 17:18 = 9.8h -> 588 min * 0.7 = 411.6
