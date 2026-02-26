@@ -6,6 +6,14 @@ from modules import pedidos_portal
 st.set_page_config(page_title="Dashboard Operacional", page_icon="🚛", layout="wide", initial_sidebar_state="expanded")
 ui_components.load_css()
 
+# Força sidebar sempre visível
+st.markdown("""
+    <style>
+        [data-testid="collapsedControl"] { display: none; }
+        section[data-testid="stSidebar"] { display: block !important; visibility: visible !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 with st.sidebar:
     st.markdown("### 🚛 Painel de Controle")
     if st.button("🔄 Atualizar Dados", type="primary", use_container_width=True):
