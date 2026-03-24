@@ -57,20 +57,34 @@ def render_kpi_cards(total_bruto, total_liquido, taxa_duplicidade, media_meta):
 
 def render_sidebar_filters(df_raw):
     with st.sidebar:
-        st.markdown("<h2 style='font-size:22px; font-weight:800; color:#0f172a;'>Control Center</h2>", unsafe_allow_html=True)
+        st.markdown("""
+            <div style='padding-bottom: 20px;'>
+                <h2 style='font-size:24px; font-weight:800; color:#0f172a; margin-bottom:5px;'>Control Center</h2>
+                <p style='font-size:12px; color:#64748b; font-weight:500;'>Filtros e Configurações de Dados</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown("---")
         
+        # Seletor de Datas em BR
+        st.markdown("<p style='font-size:13px; font-weight:700; color:#1e293b; margin-bottom: -10px;'>📅 PERÍODO DE ANÁLISE</p>", unsafe_allow_html=True)
         min_date = df_raw['Data'].min().date()
         max_val = df_raw['Data'].max().date()
         today = datetime.now().date()
         
-        dr = st.date_input("Filtrar por Periodo", value=[today, today], min_value=min_date, max_value=max_val)
+        dr = st.date_input("", value=[today, today], min_value=min_date, max_value=max_val, format="DD/MM/YYYY")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Filtros por Segmento
+        st.markdown("<p style='font-size:13px; font-weight:700; color:#1e293b; margin-bottom: -10px;'>🔍 FILTROS OPERACIONAIS</p>", unsafe_allow_html=True)
+        setores = st.multiselect("Setores", options=sorted(df_raw['Setor'].unique()), placeholder="Todos os setores")
+        analistas = st.multiselect("Analistas", options=sorted(df_raw['Colaborador'].unique()), placeholder="Todos os analistas")
+        
+        st.markdown("---")
         
         if isinstance(dr, (list, tuple)) and len(dr) == 2: start, end = dr
         else: start = end = (dr[0] if isinstance(dr, (list, tuple)) else dr)
-        
-        setores = st.multiselect("Setores", options=sorted(df_raw['Setor'].unique()))
-        analistas = st.multiselect("Analistas", options=sorted(df_raw['Colaborador'].unique()))
         
         df = df_raw.copy()
         df = df[(df['Data'].dt.date >= start) & (df['Data'].dt.date <= end)]
