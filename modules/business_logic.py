@@ -79,8 +79,8 @@ def process_data(df):
 def calculate_meta_logic(df_filtered, end_date):
     """Calcula as metas dinâmicas de SAC e Pendência."""
     # Constantes
-    TMA_TARGET_SAC = 5 + (23/60)
-    TMA_TARGET_PEND = 5 + (8/60)
+    TMA_TARGET_SAC = 4.0
+    TMA_TARGET_PEND = 4.33
     FIM_JORNADA_HORA = 17.3 # 17:18
 
     # Identifica Hora de Chegada
@@ -94,7 +94,7 @@ def calculate_meta_logic(df_filtered, end_date):
         horas_disponiveis = FIM_JORNADA_HORA - hora_inicio_valida
         if horas_disponiveis <= 0: return 0, 0
         
-        minutos_uteis = (horas_disponiveis * 60) * 0.70 # 30% Ociosidade
+        minutos_uteis = (horas_disponiveis * 60) * 0.80 # 20% Ociosidade
         
         setor_str = str(row['Setor']).upper()
         tma_alvo = TMA_TARGET_SAC 
