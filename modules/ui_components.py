@@ -107,20 +107,16 @@ def render_gauges(perc_sac, perc_pend, realizado_sac=0, meta_sac=0, realizado_pe
 def render_ranking_section(df):
     st.markdown("<h3 style='margin-top:40px; font-weight:800; color:#0f172a;'>🏆 Top Performance Recognition</h3>", unsafe_allow_html=True)
     
-    # Cálculo por dia para o ranking também
-    n_dias = max(df['Data'].nunique(), 1)
     df_rank = df[df['Eh_Novo_Episodio'] == 1].groupby('Colaborador').size().reset_index(name='Total').sort_values('Total', ascending=False).head(5).reset_index(drop=True)
     
     if df_rank.empty: return
     
-    # Render Pódio corrigido
     p1 = df_rank.iloc[0] if len(df_rank) > 0 else None
     p2 = df_rank.iloc[1] if len(df_rank) > 1 else None
     p3 = df_rank.iloc[2] if len(df_rank) > 2 else None
     
     def podium_item(p, place_cls, medal, font_size):
         if p is None: return ""
-        # HTML compacto para evitar erro de renderização do Streamlit
         return f'<div class="podium-place {place_cls}"><div class="medal">{medal}</div><div class="podium-name">{p["Colaborador"]}</div><div class="podium-value" style="font-size:{font_size}px; max-width:90%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box;">{int(p["Total"])}</div></div>'
 
     podium_html = f'<div class="podium-container">{podium_item(p2, "place-2", "🥈", 22)}{podium_item(p1, "place-1", "👑", 28)}{podium_item(p3, "place-3", "🥉", 20)}</div>'
@@ -145,79 +141,47 @@ def render_main_charts(df):
     
     with c1:
         st.markdown("<p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:15px;'>📊 Eficiência Analítica (Média Diária)</p>", unsafe_allow_html=True)
-        
-        # Lógica de Média Diária
         n_dias = max(df['Data'].nunique(), 1)
-        df_vol = df.groupby('Colaborador').agg(
-            Liquido=('Eh_Novo_Episodio', 'sum')
-        ).reset_index()
+        df_vol = df.groupby('Colaborador').agg(Liquido=('Eh_Novo_Episodio', 'sum')).reset_index()
         df_vol['Media_Dia'] = (df_vol['Liquido'] / n_dias).round(1)
         df_vol = df_vol.sort_values('Media_Dia', ascending=True)
         
-        fig = px.bar(df_vol, y='Colaborador', x='Media_Dia', 
-                     orientation='h', 
-                     color_discrete_sequence=[THEME['primary']],
-                     text_auto=True,
-                     labels={'Media_Dia': 'Atendimentos por Dia'})
-        
+        fig = px.bar(df_vol, y='Colaborador', x='Media_Dia', orientation='h', color_discrete_sequence=[THEME['primary']], text_auto=True)
         fig.update_traces(textposition='outside')
-        fig.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=10, r=40, t=10, b=10), height=450,
-            showlegend=False, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#f1f5f9')
-        )
+        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=10, r=40, t=10, b=10), height=450, showlegend=False, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#f1f5f9'))
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        st.markdown("<p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:15px;'>⚠️ Risk Analysis</p>", unsafe_allow_html=True)
-        df_stats = df.groupby('Colaborador').agg(TMA=('TMA_Valido', 'mean')).reset_index()
-        media_tma = df_stats['TMA'].mean()
-        alertas = df_stats[df_stats['TMA'] > media_tma * 1.3].head(3)
+        st.markdown("<p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:15px;'>⚠️ Risk Analysis (SLA)</p>", unsafe_allow_html=True)
+        df_stats = df.groupby('Colaborador').agg(TMA=('TMA_Valido', 'mean'), Volume=('Eh_Novo_Episodio', 'sum')).reset_index()
+        media_tma_equipe = df_stats['TMA'].mean()
+        
+        # Lógica Auditada de Alerta: Quem tem volume alto (> media + 20%) tem o limite de TMA flexibilizado para +50% da média.
+        # Caso contrário, o limite padrão é +30% da média.
+        media_vol = df_stats['Volume'].mean()
+        df_stats['Limite_TMA'] = np.where(df_stats['Volume'] > media_vol * 1.2, media_tma_equipe * 1.5, media_tma_equipe * 1.3)
+        alertas = df_stats[df_stats['TMA'] > df_stats['Limite_TMA']].head(3)
         
         if alertas.empty:
-            st.markdown("""
-                <div style="background:#f0fdf4; border:1px solid #dcfce7; border-radius:15px; padding:40px; text-align:center;">
-                    <div style="font-size:40px; margin-bottom:10px;">🛡️</div>
-                    <div style="font-weight:800; color:#16a34a;">OPERATIONAL STABILITY</div>
-                    <div style="font-size:12px; color:#16a34a; font-weight:500;">Todos os analistas operando no SLA.</div>
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div style="background:#f0fdf4; border:1px solid #dcfce7; border-radius:15px; padding:40px; text-align:center;"><div style="font-size:40px; margin-bottom:10px;">🛡️</div><div style="font-weight:800; color:#16a34a;">OPERATIONAL STABILITY</div><div style="font-size:12px; color:#16a34a; font-weight:500;">Métricas dentro do esperado.</div></div>', unsafe_allow_html=True)
         else:
             for _, r in alertas.iterrows():
-                st.markdown(f"""
-                    <div style="background:#fff1f2; border:1px solid #ffe4e6; border-radius:12px; padding:15px; margin-bottom:12px; border-left:5px solid #e11d48;">
-                        <div style="font-weight:800; color:#9f1239; font-size:14px;">{r['Colaborador']}</div>
-                        <div style="font-size:12px; color:#e11d48; font-weight:500;">TMA Crítico: {r['TMA']:.1f} min</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#fff1f2; border:1px solid #ffe4e6; border-radius:12px; padding:15px; margin-bottom:12px; border-left:5px solid #e11d48;"><div style="font-weight:800; color:#9f1239; font-size:14px;">{r["Colaborador"]}</div><div style="font-size:12px; color:#e11d48; font-weight:500;">TMA Crítico: {r["TMA"]:.1f} min</div></div>', unsafe_allow_html=True)
 
 def render_capacity_analysis(df):
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<div class='kpi-card'>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:20px;'>⚡ Capacidade Projetada vs TMA Real</p>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='kpi-card'><p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:20px;'>⚡ Capacidade Projetada vs TMA Real</p>", unsafe_allow_html=True)
     df_tma = df.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     df_tma = df_tma[df_tma['count'] > 5]
-    TEMPO_UTIL = (17.3 - 7.5) * 60 * 0.80
+    
+    # 28% Ociosidade (72% produtivo)
+    TEMPO_UTIL = (17.3 - 7.5) * 60 * 0.72 
     df_tma['Capacidade'] = (TEMPO_UTIL / df_tma['mean']).fillna(0).astype(int)
     df_tma = df_tma.sort_values('Capacidade', ascending=False)
     
     fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=df_tma['Colaborador'], y=df_tma['Capacidade'], 
-        marker_color='#dbeafe', text=df_tma['Capacidade'], textposition='outside'
-    ))
-    fig.add_trace(go.Scatter(
-        x=df_tma['Colaborador'], y=df_tma['mean'], yaxis='y2', 
-        line=dict(color='#ef4444', width=3),
-        text=df_tma['mean'].round(1), mode='lines+markers+text', textposition='top center'
-    ))
-    
-    fig.update_layout(
-        plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-        height=400, margin=dict(l=10, r=40, t=10, b=10),
-        yaxis=dict(title='Capacidade/Dia'), yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False),
-        showlegend=False
-    )
+    fig.add_trace(go.Bar(x=df_tma['Colaborador'], y=df_tma['Capacidade'], marker_color='#dbeafe', text=df_tma['Capacidade'], textposition='outside'))
+    fig.add_trace(go.Scatter(x=df_tma['Colaborador'], y=df_tma['mean'], yaxis='y2', line=dict(color='#ef4444', width=3), text=df_tma['mean'].round(1), mode='lines+markers+text', textposition='top center'))
+    fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=400, margin=dict(l=10, r=40, t=10, b=10), yaxis=dict(title='Capacidade/Dia'), yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False), showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
