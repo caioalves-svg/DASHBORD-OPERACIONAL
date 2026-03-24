@@ -94,7 +94,7 @@ def calculate_meta_logic(df_filtered, end_date):
         horas_disponiveis = FIM_JORNADA_HORA - hora_inicio_valida
         if horas_disponiveis <= 0: return 0, 0
         
-        minutos_uteis = (horas_disponiveis * 60) * 0.72 # 28% Ociosidade
+        minutos_uteis = (horas_disponiveis * 60) * 0.75 # 25% Ociosidade
         
         setor_str = str(row['Setor']).upper()
         tma_alvo = TMA_TARGET_SAC 

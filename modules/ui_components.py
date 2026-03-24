@@ -174,8 +174,8 @@ def render_capacity_analysis(df):
     df_tma = df.groupby('Colaborador')['TMA_Valido'].agg(['mean', 'count']).reset_index()
     df_tma = df_tma[df_tma['count'] > 5]
     
-    # 28% Ociosidade (72% produtivo)
-    TEMPO_UTIL = (17.3 - 7.5) * 60 * 0.72 
+    # 25% Ociosidade (75% produtivo)
+    TEMPO_UTIL = (17.3 - 7.5) * 60 * 0.75 
     df_tma['Capacidade'] = (TEMPO_UTIL / df_tma['mean']).fillna(0).astype(int)
     df_tma = df_tma.sort_values('Capacidade', ascending=False)
     
