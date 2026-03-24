@@ -1,60 +1,79 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-/* ===== RESET E LIMPEZA DE "FANTASMAS" ===== */
-header[data-testid="stHeader"] {
-    display: none !important;
+:root {
+    --primary: #6366f1;
+    --secondary: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg-dark: #0f172a;
+    --card-bg: rgba(30, 41, 59, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.1);
 }
 
-/* Remove fundos brancos de containers vazios ou de carregamento */
-div[data-testid="stVerticalBlock"] > div:empty,
-div[data-testid="stVerticalBlock"] > div:has(div:empty),
-div[data-testid="stAppViewBlockContainer"] > div:empty {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+* {
+    font-family: 'Inter', sans-serif !important;
 }
 
-.block-container {
-    padding-top: 2rem !important;
-    padding-bottom: 2rem !important;
-}
-
-/* ===== ESTILO GERAL ===== */
 .stApp {
-    background-color: #f8f9fa;
-    font-family: 'Inter', sans-serif;
+    background: radial-gradient(circle at top right, #1e293b, #0f172a) !important;
+    color: #f8fafc !important;
 }
 
+/* Glassmorphism Card */
+.glass-card {
+    background: var(--card-bg) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 20px !important;
+    padding: 24px !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+.glass-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 48px 0 rgba(99, 102, 241, 0.2) !important;
+    border-color: rgba(99, 102, 241, 0.4) !important;
+}
+
+/* Header */
 .custom-header {
-    background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
-    padding: 1.5rem 2rem;
-    border-radius: 12px;
+    background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+    padding: 40px;
+    border-radius: 24px;
+    margin-bottom: 40px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.header-title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
     color: white;
-    margin-bottom: 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-bottom: 8px;
 }
 
-.header-title { font-size: 1.8rem; font-weight: 700; }
-
-/* Estilo dos Cards de Métricas (st.metric) */
-[data-testid="stMetric"] {
-    background-color: white !important;
-    padding: 15px !important;
-    border-radius: 10px !important;
-    border: 1px solid #e5e7eb !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
-}
-
-/* Garante que o gráfico não tenha margem superior excessiva */
-div[data-testid="stPlotlyChart"] {
-    background-color: transparent !important;
-    margin-top: -10px !important;
-}
-
+/* Sidebar Custom */
 section[data-testid="stSidebar"] {
-    background-color: white;
-    border-right: 1px solid #e5e7eb;
+    background-color: #1e293b !important;
+    border-right: 1px solid var(--glass-border);
 }
+
+/* Custom Metrics */
+[data-testid="stMetricValue"] {
+    font-size: 32px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+}
+
+[data-testid="stMetricLabel"] {
+    font-size: 14px !important;
+    color: #94a3b8 !important;
+}
+
+/* Hide Streamlit elements */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
