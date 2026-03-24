@@ -5,14 +5,6 @@ from modules import data_loader, business_logic, ui_components
 st.set_page_config(page_title="Dashboard Operacional v6", page_icon="🏆", layout="wide", initial_sidebar_state="expanded")
 ui_components.load_css()
 
-# Força sidebar sempre visível
-st.markdown("""
-    <style>
-        [data-testid="collapsedControl"] { display: none; }
-        section[data-testid="stSidebar"] { display: block !important; visibility: visible !important; }
-    </style>
-""", unsafe_allow_html=True)
-
 try:
     df_raw = data_loader.get_raw_data()
 except Exception as e:
