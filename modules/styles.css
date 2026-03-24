@@ -8,8 +8,8 @@
     --bg-main: #f8fafc;
 }
 
-/* Aplicar fonte apenas a elementos de texto para nao quebrar os icones do Streamlit */
-html, body, [class*="st-"], div, p, span, h1, h2, h3, h4, h5, h6 {
+/* Aplicar fonte apenas ao conteudo principal, preservando icones do sistema no header/sidebar */
+.stApp, .stMarkdown, .stMetric, .stSelectbox, .stMultiSelect, .stButton, div[data-testid="stMarkdownContainer"] p {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
