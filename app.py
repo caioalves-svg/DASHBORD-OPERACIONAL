@@ -21,6 +21,13 @@ except Exception as e:
 
 # Processamento e Filtros
 df_processed = business_logic.process_data(df_raw)
+
+with st.sidebar:
+    st.markdown("---")
+    if st.button("🔄 Atualizar Dados", use_container_width=True, type="primary"):
+        st.cache_data.clear()
+        st.rerun()
+
 df_filtered, end_date = ui_components.render_sidebar_filters(df_processed)
 df_metas = business_logic.calculate_meta_logic(df_filtered, end_date)
 
