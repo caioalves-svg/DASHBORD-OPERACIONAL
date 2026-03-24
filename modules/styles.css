@@ -2,9 +2,10 @@
 
 :root {
     --primary: #1e40af;
+    --gold: #f59e0b;
+    --silver: #94a3b8;
+    --bronze: #b45309;
     --bg-main: #f8fafc;
-    --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --card-hover: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
 * {
@@ -15,65 +16,78 @@
     background-color: var(--bg-main) !important;
 }
 
-/* Sidebar Ultra-Clean */
-section[data-testid="stSidebar"] {
-    background-color: #ffffff !important;
-    border-right: 1px solid #e2e8f0 !important;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.02) !important;
-}
-
-/* Executive Card Style */
-.exec-card {
-    background: #ffffff !important;
-    border: 1px solid #f1f5f9 !important;
-    border-radius: 16px !important;
-    padding: 24px !important;
-    box-shadow: var(--card-shadow) !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.exec-card:hover {
-    box-shadow: var(--card-hover) !important;
-    transform: translateY(-2px);
-    border-color: #e2e8f0 !important;
-}
-
-/* KPIs de Alta Performance */
-.kpi-value {
-    font-size: 36px !important;
-    font-weight: 800 !important;
-    color: #0f172a !important;
-    letter-spacing: -1px !important;
-}
-
-.kpi-label {
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    color: #64748b !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-}
-
-/* Header de Prestígio */
-.exec-header {
-    background: #ffffff;
-    padding: 32px;
+/* KPI Premium Card */
+.kpi-card {
+    background: white;
     border-radius: 20px;
-    margin-bottom: 32px;
-    border-bottom: 1px solid #f1f5f9;
+    padding: 24px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    text-align: left;
+    transition: transform 0.3s ease;
+}
+
+.kpi-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+
+/* Podium System */
+.podium-container {
     display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 15px;
+    margin: 40px 0;
+    padding-bottom: 20px;
+}
+
+.podium-place {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    flex: 1;
+    border-radius: 16px 16px 8px 8px;
+    padding: 20px 10px;
+    position: relative;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
 }
 
-/* Ajustes Streamlit */
-div[data-testid="stMetric"] {
-    background: white !important;
+.place-1 { background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%); height: 220px; border: 2px solid #f59e0b; z-index: 3; }
+.place-2 { background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); height: 180px; border: 2px solid #94a3b8; z-index: 2; }
+.place-3 { background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%); height: 150px; border: 2px solid #b45309; z-index: 1; }
+
+.medal {
+    font-size: 40px;
+    margin-bottom: 10px;
+}
+
+.podium-name {
+    font-weight: 800;
+    font-size: 14px;
+    color: #1e293b;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.podium-value {
+    font-weight: 900;
+    font-size: 24px;
+    color: #0f172a;
+}
+
+/* Sidebar & Layout */
+section[data-testid="stSidebar"] {
+    background-color: white !important;
+    border-right: 1px solid #e2e8f0 !important;
+}
+
+button[kind="primary"] {
     border-radius: 12px !important;
-    padding: 15px !important;
+    font-weight: 700 !important;
 }
 
-/* Hide Streamlit branding */
+/* Hide Streamlit stuff */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
