@@ -111,7 +111,7 @@ def render_ranking_section(df):
     
     if df_rank.empty: return
     
-    # Render Pódio
+    # Render Pódio corrigido (valores dentro da margem)
     p1 = df_rank.iloc[0] if len(df_rank) > 0 else None
     p2 = df_rank.iloc[1] if len(df_rank) > 1 else None
     p3 = df_rank.iloc[2] if len(df_rank) > 2 else None
@@ -119,22 +119,22 @@ def render_ranking_section(df):
     podium_html = f"""
         <div class="podium-container">
             <!-- 2º Lugar -->
-            <div class="podium-place place-2">
+            <div class="podium-place place-2" style="padding-top: 30px;">
                 <div class="medal">🥈</div>
-                <div class="podium-name">{p2['Colaborador'] if p2 is not None else '-'}</div>
-                <div class="podium-value">{int(p2['Vol']) if p2 is not None else 0}</div>
+                <div class="podium-name" style="width: 100%; padding: 0 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{p2['Colaborador'] if p2 is not None else '-'}</div>
+                <div class="podium-value" style="font-size: 22px;">{int(p2['Vol']) if p2 is not None else 0}</div>
             </div>
             <!-- 1º Lugar -->
-            <div class="podium-place place-1">
+            <div class="podium-place place-1" style="padding-top: 30px;">
                 <div class="medal">👑</div>
-                <div class="podium-name">{p1['Colaborador'] if p1 is not None else '-'}</div>
-                <div class="podium-value">{int(p1['Vol']) if p1 is not None else 0}</div>
+                <div class="podium-name" style="width: 100%; padding: 0 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{p1['Colaborador'] if p1 is not None else '-'}</div>
+                <div class="podium-value" style="font-size: 28px;">{int(p1['Vol']) if p1 is not None else 0}</div>
             </div>
             <!-- 3º Lugar -->
-            <div class="podium-place place-3">
+            <div class="podium-place place-3" style="padding-top: 30px;">
                 <div class="medal">🥉</div>
-                <div class="podium-name">{p3['Colaborador'] if p3 is not None else '-'}</div>
-                <div class="podium-value">{int(p3['Vol']) if p3 is not None else 0}</div>
+                <div class="podium-name" style="width: 100%; padding: 0 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{p3['Colaborador'] if p3 is not None else '-'}</div>
+                <div class="podium-value" style="font-size: 20px;">{int(p3['Vol']) if p3 is not None else 0}</div>
             </div>
         </div>
     """
@@ -161,17 +161,18 @@ def render_main_charts(df):
     with c1:
         st.markdown("<p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:15px;'>📊 Eficiência Analítica por Colaborador</p>", unsafe_allow_html=True)
         df_vol = df.groupby('Colaborador').agg(
-            Bruto=('Data', 'count'), 
             Liquido=('Eh_Novo_Episodio', 'sum')
         ).reset_index().sort_values('Liquido', ascending=True)
         
-        fig = px.bar(df_vol, y='Colaborador', x=['Liquido', 'Bruto'], 
-                     orientation='h', barmode='group',
-                     color_discrete_sequence=[THEME['primary'], '#f1f5f9'])
+        fig = px.bar(df_vol, y='Colaborador', x='Liquido', 
+                     orientation='h', 
+                     color_discrete_sequence=[THEME['primary']],
+                     text_auto=True) # ADICIONADO QUANTIDADE NA BARRA
         
+        fig.update_traces(textposition='outside')
         fig.update_layout(
             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=10, r=10, t=10, b=10), height=450,
+            margin=dict(l=10, r=40, t=10, b=10), height=450,
             showlegend=False, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor='#f1f5f9')
         )
         st.plotly_chart(fig, use_container_width=True)
@@ -211,12 +212,23 @@ def render_capacity_analysis(df):
     df_tma = df_tma.sort_values('Capacidade', ascending=False)
     
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=df_tma['Colaborador'], y=df_tma['Capacidade'], name='Capacidade', marker_color='#dbeafe'))
-    fig.add_trace(go.Scatter(x=df_tma['Colaborador'], y=df_tma['mean'], name='TMA (min)', yaxis='y2', line=dict(color='#ef4444', width=3)))
+    # Adicionando rótulos nas barras
+    fig.add_trace(go.Bar(
+        x=df_tma['Colaborador'], y=df_tma['Capacidade'], 
+        name='Capacidade', marker_color='#dbeafe',
+        text=df_tma['Capacidade'], textposition='outside'
+    ))
+    # Adicionando rótulos na linha
+    fig.add_trace(go.Scatter(
+        x=df_tma['Colaborador'], y=df_tma['mean'], 
+        name='TMA (min)', yaxis='y2', 
+        line=dict(color='#ef4444', width=3),
+        text=df_tma['mean'].round(1), mode='lines+markers+text', textposition='top center'
+    ))
     
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-        height=400, margin=dict(l=10, r=10, t=10, b=10),
+        height=400, margin=dict(l=10, r=40, t=10, b=10),
         yaxis=dict(title='Capacidade/Dia'), yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False),
         legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5)
     )
