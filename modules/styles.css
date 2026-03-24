@@ -101,4 +101,4 @@ button[kind="primary"] {
 /* Hide Streamlit stuff */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-header {visibility: hidden;}
+/* header {visibility: hidden;} - Removido para permitir o botao de abrir a barra lateral */
