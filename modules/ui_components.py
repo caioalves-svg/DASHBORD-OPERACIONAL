@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-# CONFIGURAÇÃO DE PRESTÍGIO
+# CONFIGURACAO DE PRESTIGIO
 THEME = {
     'primary': '#1e40af',    # Blue Sapphire
     'secondary': '#059669',  # Emerald
@@ -64,7 +64,7 @@ def render_sidebar_filters(df_raw):
         max_val = df_raw['Data'].max().date()
         today = datetime.now().date()
         
-        dr = st.date_input("Filtrar por Período", value=[today, today], min_value=min_date, max_value=max_val)
+        dr = st.date_input("Filtrar por Periodo", value=[today, today], min_value=min_date, max_value=max_val)
         
         if isinstance(dr, (list, tuple)) and len(dr) == 2: start, end = dr
         else: start = end = (dr[0] if isinstance(dr, (list, tuple)) else dr)
@@ -103,7 +103,7 @@ def render_gauges(perc_sac, perc_pend, realizado_sac=0, meta_sac=0, realizado_pe
     st.markdown("<br>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1: st.markdown(gauge_card("Setor SAC", perc_sac, realizado_sac, meta_sac, "📞"), unsafe_allow_html=True)
-    with c2: st.markdown(gauge_card("Setor Pendência", perc_pend, realizado_pend, meta_pend, "⏳"), unsafe_allow_html=True)
+    with c2: st.markdown(gauge_card("Setor Pendencia", perc_pend, realizado_pend, meta_pend, "⏳"), unsafe_allow_html=True)
 
 def render_ranking_section(df):
     st.markdown("<h3 style='margin-top:40px; font-weight:800; color:#0f172a;'>🏆 Top Performance Recognition</h3>", unsafe_allow_html=True)
@@ -157,17 +157,17 @@ def render_main_charts(df):
         df_stats = df.groupby('Colaborador').agg(TMA=('TMA_Valido', 'mean'), Volume=('Eh_Novo_Episodio', 'sum')).reset_index()
         media_tma_equipe = df_stats['TMA'].mean()
         
-        # Lógica Auditada de Alerta: Quem tem volume alto (> media + 20%) tem o limite de TMA flexibilizado para +50% da média.
-        # Caso contrário, o limite padrão é +30% da média.
+        # Logica Auditada de Alerta: Quem tem volume alto (> media + 20%) tem o limite de TMA flexibilizado para +50% da media.
+        # Caso contrario, o limite padrao e +30% da media.
         media_vol = df_stats['Volume'].mean()
         df_stats['Limite_TMA'] = np.where(df_stats['Volume'] > media_vol * 1.2, media_tma_equipe * 1.5, media_tma_equipe * 1.3)
         alertas = df_stats[df_stats['TMA'] > df_stats['Limite_TMA']].head(3)
         
         if alertas.empty:
-            st.markdown('<div style="background:#f0fdf4; border:1px solid #dcfce7; border-radius:15px; padding:40px; text-align:center;"><div style="font-size:40px; margin-bottom:10px;">🛡️</div><div style="font-weight:800; color:#16a34a;">OPERATIONAL STABILITY</div><div style="font-size:12px; color:#16a34a; font-weight:500;">Métricas dentro do esperado.</div></div>', unsafe_allow_html=True)
+            st.markdown('<div style="background:#f0fdf4; border:1px solid #dcfce7; border-radius:15px; padding:40px; text-align:center;"><div style="font-size:40px; margin-bottom:10px;">🛡️</div><div style="font-weight:800; color:#16a34a;">OPERATIONAL STABILITY</div><div style="font-size:12px; color:#16a34a; font-weight:500;">Metricas dentro do esperado.</div></div>', unsafe_allow_html=True)
         else:
             for _, r in alertas.iterrows():
-                st.markdown(f'<div style="background:#fff1f2; border:1px solid #ffe4e6; border-radius:12px; padding:15px; margin-bottom:12px; border-left:5px solid #e11d48;"><div style="font-weight:800; color:#9f1239; font-size:14px;">{r["Colaborador"]}</div><div style="font-size:12px; color:#e11d48; font-weight:500;">TMA Crítico: {r["TMA"]:.1f} min</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#fff1f2; border:1px solid #ffe4e6; border-radius:12px; padding:15px; margin-bottom:12px; border-left:5px solid #e11d48;"><div style="font-weight:800; color:#9f1239; font-size:14px;">{r["Colaborador"]}</div><div style="font-size:12px; color:#e11d48; font-weight:500;">TMA Critico: {r["TMA"]:.1f} min</div></div>', unsafe_allow_html=True)
 
 def render_capacity_analysis(df):
     st.markdown("<br>", unsafe_allow_html=True)
@@ -189,19 +189,16 @@ def render_capacity_analysis(df):
 
 def render_heatmap(df):
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<div class='kpi-card'><p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:20px;'>?? Mapa de Calor: Produtividade por Hora</p>", unsafe_allow_html=True)
+    st.markdown("<div class='kpi-card'><p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:20px;'>🔥 Mapa de Calor: Produtividade por Hora</p>", unsafe_allow_html=True)
     
-    # Filtro para dias �teis (opcional, mas comum em dashboards operacionais)
-    # dias_uteis = ['Segunda-Feira', 'Ter�a-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira']
-    # df_heat = df[df['Dia_Semana'].isin(dias_uteis)]
     df_heat = df.copy()
     
     if not df_heat.empty:
         # Agrupa por Hora e Dia da Semana
         df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Atendimentos')
         
-        # Define ordem dos dias
-        ordem_dias = ['Segunda-Feira', 'Ter�a-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'S�bado', 'Domingo']
+        # Ordem dos dias sem caracteres especiais para evitar problemas de encoding
+        ordem_dias = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado', 'Domingo']
         
         fig_heat = px.density_heatmap(
             df_grp, 
