@@ -15,22 +15,24 @@ THEME = {
     'text_muted': '#64748b'  # Cinza Médio (Slate 500)
 }
 
-# Configuração Limpa de Gráficos (Auditada)
-PLOT_CONFIG = dict(
-    plot_bgcolor='rgba(255,255,255,0)',
-    paper_bgcolor='rgba(255,255,255,0)',
-    font=dict(color=THEME['text'], family="Inter, sans-serif"),
-    xaxis=dict(showgrid=False, linecolor=THEME['grid']),
-    yaxis=dict(showgrid=True, gridcolor=THEME['grid'], linecolor=THEME['grid'])
-)
-
-CHART_TITLE_STYLE = "font-size:18px; font-weight:700; color:#1e293b; font-family:Inter,sans-serif; margin-bottom:12px; border-left: 4px solid #2563eb; padding-left: 10px;"
-
 def load_css():
     try:
         with open("modules/styles.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except: pass
+
+def apply_chart_layout(fig, height=400):
+    fig.update_layout(
+        plot_bgcolor='rgba(255,255,255,0)',
+        paper_bgcolor='rgba(255,255,255,0)',
+        font=dict(color=THEME['text'], family="Inter, sans-serif"),
+        height=height,
+        xaxis=dict(showgrid=False, linecolor=THEME['grid']),
+        yaxis=dict(showgrid=True, gridcolor=THEME['grid'], linecolor=THEME['grid']),
+        margin=dict(l=10, r=10, t=40, b=10)
+    )
+
+CHART_TITLE_STYLE = "font-size:18px; font-weight:700; color:#1e293b; font-family:Inter,sans-serif; margin-bottom:12px; border-left: 4px solid #2563eb; padding-left: 10px;"
 
 def render_header():
     st.markdown(f"""
@@ -69,7 +71,7 @@ def render_sidebar_filters(df_raw):
     if colaboradores: df = df[df['Colaborador'].isin(colaboradores)]
     
     st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-    st.sidebar.caption("v5.1 - Business Logic Audit")
+    st.sidebar.caption("v5.2 - Error Fixed")
     
     return df, end
 
@@ -114,12 +116,9 @@ def render_main_bar_chart(df):
                  color_discrete_sequence=[THEME['primary'], '#e2e8f0'],
                  text_auto='.0s')
     
-    fig.update_layout(
-        **PLOT_CONFIG,
-        height=450,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None),
-        margin=dict(l=10, r=40, t=10, b=10)
-    )
+    apply_chart_layout(fig, height=500)
+    fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None))
+    
     st.markdown(f"<div class='professional-card'><p style='{CHART_TITLE_STYLE}'>Volume por Colaborador (Líquido x Bruto)</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -144,14 +143,12 @@ def render_capacity_scatter(df):
         marker=dict(size=8, color=THEME['danger'])
     ))
     
+    apply_chart_layout(fig, height=450)
     fig.update_layout(
-        **PLOT_CONFIG,
-        height=400,
-        yaxis=dict(title='Capacidade/Dia', gridcolor=THEME['grid']),
         yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False),
-        legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5),
-        margin=dict(l=10, r=10, t=50, b=10)
+        legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5)
     )
+    
     st.markdown(f"<div class='professional-card'><p style='{CHART_TITLE_STYLE}'>Capacidade de Atendimento x TMA</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -162,7 +159,7 @@ def render_evolution_chart(df):
     fig = px.line(df_line, x='Hora_Cheia', y='Volume', markers=True, 
                   color_discrete_sequence=[THEME['primary']])
     fig.update_traces(line_width=3, fill='tozeroy')
-    fig.update_layout(**PLOT_CONFIG, height=300, margin=dict(l=10, r=10, t=20, b=10))
+    apply_chart_layout(fig, height=350)
     st.markdown(f"<div class='professional-card'><p style='{CHART_TITLE_STYLE}'>Fluxo Operacional por Hora</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -173,7 +170,7 @@ def render_heatmap_clean(df):
     if df_grp.empty: return
     fig = px.density_heatmap(df_grp, x='Dia_Semana', y='Hora_Cheia', z='Volume',
                               color_continuous_scale='Blues', category_orders={"Dia_Semana": dias_ordem})
-    fig.update_layout(**PLOT_CONFIG, height=300, margin=dict(l=10, r=10, t=20, b=10))
+    apply_chart_layout(fig, height=350)
     st.markdown(f"<div class='professional-card'><p style='{CHART_TITLE_STYLE}'>Concentração de Chamados (Heatmap)</p>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
