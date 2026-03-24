@@ -110,7 +110,6 @@ def render_ranking_section(df):
     # Cálculo por dia para o ranking também
     n_dias = max(df['Data'].nunique(), 1)
     df_rank = df[df['Eh_Novo_Episodio'] == 1].groupby('Colaborador').size().reset_index(name='Total').sort_values('Total', ascending=False).head(5).reset_index(drop=True)
-    df_rank['Vol_Dia'] = (df_rank['Total'] / n_dias).round(1)
     
     if df_rank.empty: return
     
@@ -121,21 +120,10 @@ def render_ranking_section(df):
     
     def podium_item(p, place_cls, medal, font_size):
         if p is None: return ""
-        return f"""
-            <div class="podium-place {place_cls}">
-                <div class="medal">{medal}</div>
-                <div class="podium-name">{p['Colaborador']}</div>
-                <div class="podium-value" style="font-size: {font_size}px; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box;">{p['Total']}</div>
-            </div>
-        """
+        # HTML compacto para evitar erro de renderização do Streamlit
+        return f'<div class="podium-place {place_cls}"><div class="medal">{medal}</div><div class="podium-name">{p["Colaborador"]}</div><div class="podium-value" style="font-size:{font_size}px; max-width:90%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box;">{int(p["Total"])}</div></div>'
 
-    podium_html = f"""
-        <div class="podium-container">
-            {podium_item(p2, 'place-2', '🥈', 22)}
-            {podium_item(p1, 'place-1', '👑', 28)}
-            {podium_item(p3, 'place-3', '🥉', 20)}
-        </div>
-    """
+    podium_html = f'<div class="podium-container">{podium_item(p2, "place-2", "🥈", 22)}{podium_item(p1, "place-1", "👑", 28)}{podium_item(p3, "place-3", "🥉", 20)}</div>'
     st.markdown(podium_html, unsafe_allow_html=True)
     
     if len(df_rank) > 3:
@@ -197,7 +185,7 @@ def render_main_charts(df):
         else:
             for _, r in alertas.iterrows():
                 st.markdown(f"""
-                    <div style="background:#fff1f2; border:1px solid #ffe4e6; border-radius:12px; padding:15px; margin-bottom:12px; border-left:5 solid #e11d48;">
+                    <div style="background:#fff1f2; border:1px solid #ffe4e6; border-radius:12px; padding:15px; margin-bottom:12px; border-left:5px solid #e11d48;">
                         <div style="font-weight:800; color:#9f1239; font-size:14px;">{r['Colaborador']}</div>
                         <div style="font-size:12px; color:#e11d48; font-weight:500;">TMA Crítico: {r['TMA']:.1f} min</div>
                     </div>
