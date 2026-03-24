@@ -1,76 +1,79 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-    --primary: #2563eb;
-    --secondary: #10b981;
-    --text-main: #1e293b;
-    --text-muted: #64748b;
-    --bg-app: #f1f5f9;
-    --card-bg: #ffffff;
-    --border-color: #e2e8f0;
+    --primary: #1e40af;
+    --bg-main: #f8fafc;
+    --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --card-hover: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
 * {
-    font-family: 'Inter', sans-serif !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
-/* App Background */
 .stApp {
-    background-color: var(--bg-app) !important;
+    background-color: var(--bg-main) !important;
 }
 
-/* Professional Card */
-.professional-card {
-    background: var(--card-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: 12px !important;
-    padding: 20px !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
-    margin-bottom: 15px !important;
-}
-
-/* Header Auditado */
-.custom-header {
-    background: #ffffff;
-    border-bottom: 2px solid var(--primary);
-    padding: 25px;
-    border-radius: 12px;
-    margin-bottom: 30px;
-    text-align: left;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-.header-title {
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--text-main);
-    letter-spacing: -0.5px;
-}
-
-/* Sidebar Light */
+/* Sidebar Ultra-Clean */
 section[data-testid="stSidebar"] {
     background-color: #ffffff !important;
-    border-right: 1px solid var(--border-color) !important;
+    border-right: 1px solid #e2e8f0 !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.02) !important;
 }
 
-/* Metrics Clear */
-[data-testid="stMetricValue"] {
-    font-size: 28px !important;
-    font-weight: 700 !important;
-    color: var(--text-main) !important;
+/* Executive Card Style */
+.exec-card {
+    background: #ffffff !important;
+    border: 1px solid #f1f5f9 !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    box-shadow: var(--card-shadow) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-[data-testid="stMetricLabel"] {
+.exec-card:hover {
+    box-shadow: var(--card-hover) !important;
+    transform: translateY(-2px);
+    border-color: #e2e8f0 !important;
+}
+
+/* KPIs de Alta Performance */
+.kpi-value {
+    font-size: 36px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    letter-spacing: -1px !important;
+}
+
+.kpi-label {
     font-size: 13px !important;
-    color: var(--text-muted) !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
 }
 
-/* Botões e Inputs */
-.stMultiSelect, .stDateInput {
-    border-radius: 8px !important;
+/* Header de Prestígio */
+.exec-header {
+    background: #ffffff;
+    padding: 32px;
+    border-radius: 20px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
-/* Hide Unnecessary Elements */
+/* Ajustes Streamlit */
+div[data-testid="stMetric"] {
+    background: white !important;
+    border-radius: 12px !important;
+    padding: 15px !important;
+}
+
+/* Hide Streamlit branding */
 #MainMenu {visibility: hidden;}
-footer {visibility: hidden; position: absolute;}
+footer {visibility: hidden;}
 header {visibility: hidden;}
