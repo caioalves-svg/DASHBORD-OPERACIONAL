@@ -206,7 +206,7 @@ def render_heatmap(df):
             y='Hora_Cheia', 
             z='Atendimentos',
             category_orders={"Dia_Semana": ordem_dias},
-            color_continuous_scale='Viridis',
+            color_continuous_scale='Blues',
             text_auto=True
         )
         
