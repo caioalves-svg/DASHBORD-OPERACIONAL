@@ -1,79 +1,76 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-    --primary: #6366f1;
+    --primary: #2563eb;
     --secondary: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --bg-dark: #0f172a;
-    --card-bg: rgba(30, 41, 59, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.1);
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --bg-app: #f1f5f9;
+    --card-bg: #ffffff;
+    --border-color: #e2e8f0;
 }
 
 * {
     font-family: 'Inter', sans-serif !important;
 }
 
+/* App Background */
 .stApp {
-    background: radial-gradient(circle at top right, #1e293b, #0f172a) !important;
-    color: #f8fafc !important;
+    background-color: var(--bg-app) !important;
 }
 
-/* Glassmorphism Card */
-.glass-card {
+/* Professional Card */
+.professional-card {
     background: var(--card-bg) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid var(--glass-border) !important;
-    border-radius: 20px !important;
-    padding: 24px !important;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
-    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    margin-bottom: 15px !important;
 }
 
-.glass-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 48px 0 rgba(99, 102, 241, 0.2) !important;
-    border-color: rgba(99, 102, 241, 0.4) !important;
-}
-
-/* Header */
+/* Header Auditado */
 .custom-header {
-    background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
-    padding: 40px;
-    border-radius: 24px;
-    margin-bottom: 40px;
-    text-align: center;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    background: #ffffff;
+    border-bottom: 2px solid var(--primary);
+    padding: 25px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    text-align: left;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
 .header-title {
-    font-size: 32px;
+    font-size: 24px;
     font-weight: 800;
-    letter-spacing: -1px;
-    color: white;
-    margin-bottom: 8px;
+    color: var(--text-main);
+    letter-spacing: -0.5px;
 }
 
-/* Sidebar Custom */
+/* Sidebar Light */
 section[data-testid="stSidebar"] {
-    background-color: #1e293b !important;
-    border-right: 1px solid var(--glass-border);
+    background-color: #ffffff !important;
+    border-right: 1px solid var(--border-color) !important;
 }
 
-/* Custom Metrics */
+/* Metrics Clear */
 [data-testid="stMetricValue"] {
-    font-size: 32px !important;
-    font-weight: 800 !important;
-    color: #ffffff !important;
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    color: var(--text-main) !important;
 }
 
 [data-testid="stMetricLabel"] {
-    font-size: 14px !important;
-    color: #94a3b8 !important;
+    font-size: 13px !important;
+    color: var(--text-muted) !important;
 }
 
-/* Hide Streamlit elements */
+/* Botões e Inputs */
+.stMultiSelect, .stDateInput {
+    border-radius: 8px !important;
+}
+
+/* Hide Unnecessary Elements */
 #MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
+footer {visibility: hidden; position: absolute;}
 header {visibility: hidden;}
