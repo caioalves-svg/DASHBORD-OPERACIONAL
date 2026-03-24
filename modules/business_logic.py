@@ -34,7 +34,7 @@ def process_data(df):
     # 4. IDs de Referência
     df['ID_Ref'] = np.where(df['Numero_Pedido'] != "Não Informado", df['Numero_Pedido'], df['Nota_Fiscal'])
     df['ID_Ref'] = df['ID_Ref'].astype(str)
-    df['Data_Str'] = df['Data'].dt.strftime('%Y-%m-%d')
+    df['Data_Str'] = df['Data'].dt.strftime('%d/%m/%Y')
 
     # ==============================================================================
     # REGRA DE NEGÓCIO: DUPLICIDADE (COM EXCEÇÕES SOLICITADAS)

@@ -107,40 +107,37 @@ def render_gauges(perc_sac, perc_pend, realizado_sac=0, meta_sac=0, realizado_pe
 def render_ranking_section(df):
     st.markdown("<h3 style='margin-top:40px; font-weight:800; color:#0f172a;'>🏆 Top Performance Recognition</h3>", unsafe_allow_html=True)
     
-    df_rank = df[df['Eh_Novo_Episodio'] == 1].groupby('Colaborador').size().reset_index(name='Vol').sort_values('Vol', ascending=False).head(5).reset_index(drop=True)
+    # Cálculo por dia para o ranking também
+    n_dias = max(df['Data'].nunique(), 1)
+    df_rank = df[df['Eh_Novo_Episodio'] == 1].groupby('Colaborador').size().reset_index(name='Total').sort_values('Total', ascending=False).head(5).reset_index(drop=True)
+    df_rank['Vol_Dia'] = (df_rank['Total'] / n_dias).round(1)
     
     if df_rank.empty: return
     
-    # Render Pódio corrigido (Aumentado para caber nome e número)
+    # Render Pódio corrigido
     p1 = df_rank.iloc[0] if len(df_rank) > 0 else None
     p2 = df_rank.iloc[1] if len(df_rank) > 1 else None
     p3 = df_rank.iloc[2] if len(df_rank) > 2 else None
     
+    def podium_item(p, place_cls, medal, font_size):
+        if p is None: return ""
+        return f"""
+            <div class="podium-place {place_cls}">
+                <div class="medal">{medal}</div>
+                <div class="podium-name">{p['Colaborador']}</div>
+                <div class="podium-value" style="font-size: {font_size}px; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box;">{p['Total']}</div>
+            </div>
+        """
+
     podium_html = f"""
         <div class="podium-container">
-            <!-- 2º Lugar -->
-            <div class="podium-place place-2">
-                <div class="medal">🥈</div>
-                <div class="podium-name">{p2['Colaborador'] if p2 is not None else '-'}</div>
-                <div class="podium-value">{int(p2['Vol']) if p2 is not None else 0}</div>
-            </div>
-            <!-- 1º Lugar -->
-            <div class="podium-place place-1">
-                <div class="medal">👑</div>
-                <div class="podium-name">{p1['Colaborador'] if p1 is not None else '-'}</div>
-                <div class="podium-value">{int(p1['Vol']) if p1 is not None else 0}</div>
-            </div>
-            <!-- 3º Lugar -->
-            <div class="podium-place place-3">
-                <div class="medal">🥉</div>
-                <div class="podium-name">{p3['Colaborador'] if p3 is not None else '-'}</div>
-                <div class="podium-value">{int(p3['Vol']) if p3 is not None else 0}</div>
-            </div>
+            {podium_item(p2, 'place-2', '🥈', 22)}
+            {podium_item(p1, 'place-1', '👑', 28)}
+            {podium_item(p3, 'place-3', '🥉', 20)}
         </div>
     """
     st.markdown(podium_html, unsafe_allow_html=True)
     
-    # Outros no Top 5
     if len(df_rank) > 3:
         st.markdown("<div style='margin-top:-10px;'></div>", unsafe_allow_html=True)
         for i, row in df_rank.iloc[3:].iterrows():
@@ -150,7 +147,7 @@ def render_ranking_section(df):
                         <span style="font-weight:900; color:#cbd5e1; font-size:18px;">#{i+1}</span>
                         <span style="font-weight:700; color:#1e293b;">{row['Colaborador']}</span>
                     </div>
-                    <span style="font-weight:800; color:#1e40af; font-size:18px;">{int(row['Vol'])}</span>
+                    <span style="font-weight:800; color:#1e40af; font-size:18px;">{int(row['Total'])}</span>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -159,15 +156,21 @@ def render_main_charts(df):
     c1, c2 = st.columns([2, 1])
     
     with c1:
-        st.markdown("<p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:15px;'>📊 Eficiência Analítica por Colaborador</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:15px;'>📊 Eficiência Analítica (Média Diária)</p>", unsafe_allow_html=True)
+        
+        # Lógica de Média Diária
+        n_dias = max(df['Data'].nunique(), 1)
         df_vol = df.groupby('Colaborador').agg(
             Liquido=('Eh_Novo_Episodio', 'sum')
-        ).reset_index().sort_values('Liquido', ascending=True)
+        ).reset_index()
+        df_vol['Media_Dia'] = (df_vol['Liquido'] / n_dias).round(1)
+        df_vol = df_vol.sort_values('Media_Dia', ascending=True)
         
-        fig = px.bar(df_vol, y='Colaborador', x='Liquido', 
+        fig = px.bar(df_vol, y='Colaborador', x='Media_Dia', 
                      orientation='h', 
                      color_discrete_sequence=[THEME['primary']],
-                     text_auto=True)
+                     text_auto=True,
+                     labels={'Media_Dia': 'Atendimentos por Dia'})
         
         fig.update_traces(textposition='outside')
         fig.update_layout(
@@ -194,7 +197,7 @@ def render_main_charts(df):
         else:
             for _, r in alertas.iterrows():
                 st.markdown(f"""
-                    <div style="background:#fff1f2; border:1px solid #ffe4e6; border-radius:12px; padding:15px; margin-bottom:12px; border-left:5px solid #e11d48;">
+                    <div style="background:#fff1f2; border:1px solid #ffe4e6; border-radius:12px; padding:15px; margin-bottom:12px; border-left:5 solid #e11d48;">
                         <div style="font-weight:800; color:#9f1239; font-size:14px;">{r['Colaborador']}</div>
                         <div style="font-size:12px; color:#e11d48; font-weight:500;">TMA Crítico: {r['TMA']:.1f} min</div>
                     </div>
