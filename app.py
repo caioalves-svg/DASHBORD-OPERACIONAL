@@ -55,3 +55,6 @@ ui_components.render_main_charts(df_filtered)
 
 # Capacidade
 ui_components.render_capacity_analysis(df_filtered)
+
+# Mapa de Calor
+ui_components.render_heatmap(df_filtered)

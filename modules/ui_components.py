@@ -186,3 +186,42 @@ def render_capacity_analysis(df):
     fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=400, margin=dict(l=10, r=40, t=10, b=10), yaxis=dict(title='Capacidade/Dia'), yaxis2=dict(title='TMA (min)', overlaying='y', side='right', showgrid=False), showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
+def render_heatmap(df):
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div class='kpi-card'><p style='font-size:16px; font-weight:800; color:#0f172a; margin-bottom:20px;'>?? Mapa de Calor: Produtividade por Hora</p>", unsafe_allow_html=True)
+    
+    # Filtro para dias úteis (opcional, mas comum em dashboards operacionais)
+    # dias_uteis = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira']
+    # df_heat = df[df['Dia_Semana'].isin(dias_uteis)]
+    df_heat = df.copy()
+    
+    if not df_heat.empty:
+        # Agrupa por Hora e Dia da Semana
+        df_grp = df_heat.groupby(['Dia_Semana', 'Hora_Cheia']).size().reset_index(name='Atendimentos')
+        
+        # Define ordem dos dias
+        ordem_dias = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado', 'Domingo']
+        
+        fig_heat = px.density_heatmap(
+            df_grp, 
+            x='Dia_Semana', 
+            y='Hora_Cheia', 
+            z='Atendimentos',
+            category_orders={"Dia_Semana": ordem_dias},
+            color_continuous_scale='Viridis',
+            text_auto=True
+        )
+        
+        fig_heat.update_layout(
+            height=450,
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=10, r=10, b=10, t=10),
+            xaxis_title="Dia da Semana",
+            yaxis_title="Hora do Dia"
+        )
+        st.plotly_chart(fig_heat, use_container_width=True)
+    else:
+        st.warning("Sem dados suficientes para gerar o mapa de calor.")
+    st.markdown("</div>", unsafe_allow_html=True)
